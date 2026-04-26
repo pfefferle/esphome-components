@@ -39,7 +39,7 @@ globals:
   - id: pwn_face
     type: std::string
     restore_value: no
-    initial_value: '"(◕‿‿◕)"'
+    initial_value: '"(O__O)"'
 
 font:
   # Palnagotchi faces are pure ASCII, so the default Latin Core glyphset
@@ -52,12 +52,6 @@ font:
     size: ${pwn_font_size}
     glyphsets:
       - GF_Latin_Core
-      - file:
-          type: gfonts
-          family: Noto Sans Math
-        glyphs:
-          - '⇀'    # harpoon arrows (chemistry equilibrium)
-          - '↼'
 
 display:
   - id: !extend ${pwn_display_id}
