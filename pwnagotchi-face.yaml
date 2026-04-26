@@ -55,8 +55,9 @@ font:
       # of showing as boxes. Split across families for best coverage:
       #   - Noto Sans: phonetic / general-punctuation / Latin-supplement
       #   - Noto Sans Symbols 2: geometric shapes, misc symbols, dingbats
-      #   - Noto Sans Mono: arrows, box drawing, block elements,
-      #     misc technical (mono fonts have full terminal-glyph coverage)
+      #   - Noto Sans Mono: box drawing, block elements, misc technical
+      #     (mono fonts have full terminal-glyph coverage)
+      #   - Noto Sans Symbols: arrows + saltire that Mono / Symbols 2 lack
       - file:
           type: gfonts
           family: Noto Sans
@@ -86,11 +87,15 @@ font:
           type: gfonts
           family: Noto Sans Mono
         glyphs:
-          - '⇀'    # arrows
-          - '↼'
           - '⌐'    # misc technical
           - '╥'    # box drawing
           - '▃'    # block elements
+      - file:
+          type: gfonts
+          family: Noto Sans Symbols
+        glyphs:
+          - '⇀'    # arrows
+          - '↼'
           - '☓'    # saltire
 
 display:
