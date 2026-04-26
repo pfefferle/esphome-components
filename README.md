@@ -11,11 +11,14 @@ works on any ESPHome `display:` you can address by `id`.
 ## What it does
 
 - While your device is idle, every 30s–5min (configurable) a random face
-  pops up for a few seconds:
+  pops up for a few seconds. The full canonical Pwnagotchi face set ships
+  out of the box:
 
   ```
-  (◕‿‿◕)   ( ◕‿◕)   (-__-)   (•‿‿•)   (⌐■_■)   (°▃▃°)
-  (⇀‿‿↼)   (♥‿‿♥)   (✖‿‿✖)   (✜‿‿✜)   (ᵔ◡◡ᵔ)   (◞‸◟)
+  ( ⚆_⚆)  (☉_☉ )  ( ◕‿◕)  (◕‿◕ )  (⇀‿‿↼)  (≖‿‿≖)  (◕‿‿◕)
+  (-__-)  (°▃▃°)  (⌐■_■)  (•‿‿•)  (^‿‿^)  (ᵔ◡◡ᵔ)  (☼‿‿☼)
+  (✖‿‿✖)  (✜‿‿✜)  (ب__ب)  (╥☁╥ )  (-_-')  (♥‿‿♥)  (☓‿‿☓)
+  (#__#)  (⇪‿‿⇪)  (⇧‿‿⇧)  (◔‿‿◔)
   ```
 
 - After the face times out, your normal UI is restored by re-running an

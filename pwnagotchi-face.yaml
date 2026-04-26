@@ -51,32 +51,45 @@ font:
       - GF_Latin_Plus
     extras:
       # Pwnagotchi faces use symbols outside the Latin Core set; pull the
-      # specific glyphs we need from Noto Sans so they render instead of
-      # showing as boxes.
+      # specific glyphs we need from Noto families so they render instead
+      # of showing as boxes. Split across families for best coverage.
       - file:
           type: gfonts
           family: Noto Sans
         glyphs:
           - '◕'
+          - '◔'
+          - '◡'
+          - 'ᵔ'
           - '‿'
           - '⇀'
           - '↼'
-          - '■'
-          - '⌐'
-          - '✜'
-          - '✖'
-          - '▿'
+          - '≖'
+          - '⇪'
+          - '⇧'
           - '°'
           - '▃'
-          - '◞'
-          - '‸'
-          - '◟'
-          - 'ᵔ'
-          - '◡'
+          - '⌐'
+          - '■'
           - '•'
-          - '^'
           - '╥'
           - '♥'
+      - file:
+          type: gfonts
+          family: Noto Sans Symbols 2
+        glyphs:
+          - '⚆'
+          - '☉'
+          - '☼'
+          - '☁'
+          - '✖'
+          - '✜'
+          - '☓'
+      - file:
+          type: gfonts
+          family: Noto Sans Arabic
+        glyphs:
+          - 'ب'
 
 display:
   - id: !extend ${pwn_display_id}
@@ -106,22 +119,33 @@ script:
             lambda: 'return ${pwn_show_condition};'
           then:
             - lambda: |-
+                // Canonical Pwnagotchi face set (see pwnagotchi/voice.py).
                 static const char* faces[] = {
-                  "(◕‿‿◕)",   // awake
-                  "( ◕‿◕)",   // look right happy
-                  "(◕‿◕ )",   // look left happy
-                  "(-__-)",   // bored
-                  "(•‿‿•)",   // happy
-                  "(^‿‿^)",   // grateful
-                  "(⌐■_■)",   // cool
-                  "(°▃▃°)",   // intense
-                  "(⇀‿‿↼)",   // sleep
-                  "(╥_╥)",    // sad
-                  "(♥‿‿♥)",   // friend
-                  "(✖‿‿✖)",   // demotivated
-                  "(✜‿‿✜)",   // smart
-                  "(ᵔ◡◡ᵔ)",   // excited
-                  "(◞‸◟)"     // lonely
+                  "( ⚆_⚆)",     // LOOK_R
+                  "(☉_☉ )",     // LOOK_L
+                  "( ◕‿◕)",     // LOOK_R_HAPPY
+                  "(◕‿◕ )",     // LOOK_L_HAPPY
+                  "(⇀‿‿↼)",     // SLEEP
+                  "(≖‿‿≖)",     // SLEEP2
+                  "(◕‿‿◕)",     // AWAKE
+                  "(-__-)",     // BORED
+                  "(°▃▃°)",     // INTENSE
+                  "(⌐■_■)",     // COOL
+                  "(•‿‿•)",     // HAPPY
+                  "(^‿‿^)",     // GRATEFUL
+                  "(ᵔ◡◡ᵔ)",     // EXCITED
+                  "(☼‿‿☼)",     // MOTIVATED
+                  "(✖‿‿✖)",     // DEMOTIVATED
+                  "(✜‿‿✜)",     // SMART
+                  "(ب__ب)",     // LONELY
+                  "(╥☁╥ )",     // SAD
+                  "(-_-')",     // ANGRY
+                  "(♥‿‿♥)",     // FRIEND
+                  "(☓‿‿☓)",     // BROKEN
+                  "(#__#)",     // DEBUG
+                  "(⇪‿‿⇪)",     // UPLOAD
+                  "(⇧‿‿⇧)",     // UPLOAD1
+                  "(◔‿‿◔)"      // UPLOAD2
                 };
                 id(pwn_face) = faces[random_uint32() % (sizeof(faces) / sizeof(*faces))];
             - display.page.show: pwn_face_page
