@@ -54,9 +54,9 @@ font:
       # specific glyphs we need from Noto families so they render instead
       # of showing as boxes. Split across families for best coverage:
       #   - Noto Sans: phonetic / general-punctuation / Latin-supplement
-      #   - Noto Sans Symbols 2: geometric shapes, arrows, box drawing,
-      #     block elements, misc symbols, dingbats
-      #   - Noto Sans Arabic: ب for the LONELY face
+      #   - Noto Sans Symbols 2: geometric shapes, misc symbols, dingbats
+      #   - Noto Sans Mono: arrows, box drawing, block elements,
+      #     misc technical (mono fonts have full terminal-glyph coverage)
       - file:
           type: gfonts
           family: Noto Sans
@@ -92,11 +92,6 @@ font:
           - '╥'    # box drawing
           - '▃'    # block elements
           - '☓'    # saltire
-      - file:
-          type: gfonts
-          family: Noto Sans Arabic
-        glyphs:
-          - 'ب'
 
 display:
   - id: !extend ${pwn_display_id}
@@ -143,7 +138,6 @@ script:
                   "(☼‿‿☼)",     // MOTIVATED
                   "(✖‿‿✖)",     // DEMOTIVATED
                   "(✜‿‿✜)",     // SMART
-                  "(ب__ب)",     // LONELY
                   "(╥☁╥ )",     // SAD
                   "(-_-')",     // ANGRY
                   "(♥‿‿♥)",     // FRIEND
