@@ -52,28 +52,19 @@ font:
     extras:
       # Pwnagotchi faces use symbols outside the Latin Core set; pull the
       # specific glyphs we need from Noto families so they render instead
-      # of showing as boxes. Split across families for best coverage.
+      # of showing as boxes. Split across families for best coverage:
+      #   - Noto Sans: phonetic / general-punctuation / Latin-supplement
+      #   - Noto Sans Symbols 2: geometric shapes, arrows, box drawing,
+      #     block elements, misc symbols, dingbats
+      #   - Noto Sans Arabic: ب for the LONELY face
       - file:
           type: gfonts
           family: Noto Sans
         glyphs:
-          - '◕'
-          - '◔'
-          - '◡'
-          - 'ᵔ'
           - '‿'
-          - '⇀'
-          - '↼'
+          - 'ᵔ'
           - '≖'
-          - '⇪'
-          - '⇧'
           - '°'
-          - '▃'
-          - '⌐'
-          - '■'
-          - '•'
-          - '╥'
-          - '♥'
       - file:
           type: gfonts
           family: Noto Sans Symbols 2
@@ -82,9 +73,22 @@ font:
           - '☉'
           - '☼'
           - '☁'
+          - '♥'
           - '✖'
           - '✜'
           - '☓'
+          - '◕'
+          - '◔'
+          - '◡'
+          - '⇀'
+          - '↼'
+          - '⇪'
+          - '⇧'
+          - '⌐'
+          - '■'
+          - '•'
+          - '╥'
+          - '▃'
       - file:
           type: gfonts
           family: Noto Sans Arabic
