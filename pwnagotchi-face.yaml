@@ -63,7 +63,6 @@ font:
         glyphs:
           - '‿'
           - 'ᵔ'
-          - '≖'
           - '°'
       - file:
           type: gfonts
@@ -130,7 +129,6 @@ script:
                   "( ◕‿◕)",     // LOOK_R_HAPPY
                   "(◕‿◕ )",     // LOOK_L_HAPPY
                   "(⇀‿‿↼)",     // SLEEP
-                  "(≖‿‿≖)",     // SLEEP2
                   "(◕‿‿◕)",     // AWAKE
                   "(-__-)",     // BORED
                   "(°▃▃°)",     // INTENSE
