@@ -1,8 +1,9 @@
 # PwnStack
 
 A drop-in [ESPHome](https://esphome.io/) package that randomly displays a
-[Pwnagotchi](https://pwnagotchi.ai/)-style ASCII face on your device's LCD,
-then hands the screen back to whatever was drawing before.
+[Palnagotchi](https://github.com/viniciusbo/m5-palnagotchi) mood face on
+your device's LCD, then hands the screen back to whatever was drawing
+before.
 
 Built originally as a fun overlay for the M5Stack
 [StackChan](https://github.com/m5stack/esphome-yaml) voice assistant, but it
@@ -11,14 +12,14 @@ works on any ESPHome `display:` you can address by `id`.
 ## What it does
 
 - While your device is idle, every 30s–5min (configurable) a random face
-  pops up for a few seconds. The full canonical Pwnagotchi face set ships
-  out of the box:
+  pops up for a few seconds. The full Palnagotchi default mood set ships
+  out of the box (faces are pure ASCII, so no special font setup is needed):
 
   ```
-  ( ⚆_⚆)  (☉_☉ )  ( ◕‿◕)  (◕‿◕ )  (⇀‿‿↼)  (◕‿‿◕)  (-__-)
-  (°▃▃°)  (⌐■_■)  (•‿‿•)  (^‿‿^)  (ᵔ◡◡ᵔ)  (☼‿‿☼)  (✖‿‿✖)
-  (✜‿‿✜)  (╥☁╥ )  (-_-')  (♥‿‿♥)  (☓‿‿☓)  (#__#)  (⇪‿‿⇪)
-  (⇧‿‿⇧)  (◔‿‿◔)
+  (v__v)  (=__=)  (O__O)  ( O_O)  (O_O )  ( 0_0)  (0_0 )
+  (+__+)  (-@_@)  (0__0)  (^__^)  (a__a)  (+__+)  (*__*)
+  (@__@)  (>__<)  (-__-)  (T_T )  (;__;)  (X__X)  (#__#)
+  8====D
   ```
 
 - After the face times out, your normal UI is restored by re-running an
@@ -104,15 +105,22 @@ packages:
 The package contributes:
 
 - A `pwn_face` global holding the currently chosen face string.
-- A `pwn_font` font that pulls the needed Unicode glyphs (`◕`, `‿`, `⇀`, `↼`,
-  `■`, `⌐`, `╥`, `♥`, …) from Google Fonts' Noto Sans on top of `Figtree`'s
-  Latin coverage.
+- A `pwn_font` font (Figtree by default, Latin Core glyphset only) — the
+  Palnagotchi face set is pure ASCII, so no Unicode/symbol font fallbacks
+  are needed.
 - A `pwn_face_page` page added to your existing `display:` via the `!extend`
   keyword — no need to redefine the display.
 - A self-rescheduling `pwn_face_loop` script that waits a random amount of
   time, checks the show condition, picks a random face, switches to
   `pwn_face_page`, waits a random amount of time, and then calls your redraw
   script to restore the normal UI.
+
+## Credits
+
+The mood faces come from
+[viniciusbo/m5-palnagotchi](https://github.com/viniciusbo/m5-palnagotchi)
+(`palnagotchi/mood.cpp` → `palnagotchi_default_moods[]`), MIT licensed by
+Vinícius Borriello.
 
 ## License
 
