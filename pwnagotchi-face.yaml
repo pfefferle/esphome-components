@@ -75,19 +75,23 @@ font:
           - '♥'
           - '✖'
           - '✜'
-          - '☓'
           - '◕'
           - '◔'
           - '◡'
-          - '⇀'
-          - '↼'
           - '⇪'
           - '⇧'
-          - '⌐'
           - '■'
           - '•'
-          - '╥'
-          - '▃'
+      - file:
+          type: gfonts
+          family: Noto Sans Mono
+        glyphs:
+          - '⇀'    # arrows
+          - '↼'
+          - '⌐'    # misc technical
+          - '╥'    # box drawing
+          - '▃'    # block elements
+          - '☓'    # saltire
       - file:
           type: gfonts
           family: Noto Sans Arabic
