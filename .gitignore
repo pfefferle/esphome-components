@@ -1,0 +1,15 @@
+# ESPHome
+.esphome/
+.pioenvs/
+.piolibdeps/
+*.bin
+*.elf
+
+# Secrets — never commit
+secrets.yaml
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
