@@ -20,7 +20,7 @@ esphome:
 esp32:
   board: m5stack-core-esp32
   framework:
-    type: arduino
+    type: esp-idf
 
 logger:
 
@@ -53,6 +53,15 @@ display:
     update_interval: 33ms       # ~30 fps
     lambda: |-
       static stackchan_avatar::Avatar avatar;
+      auto opt = id(avatar_expression).state;
+      using E = stackchan_avatar::Expression;
+      if      (opt == "happy")  avatar.set_expression(E::Happy);
+      else if (opt == "sad")    avatar.set_expression(E::Sad);
+      else if (opt == "angry")  avatar.set_expression(E::Angry);
+      else if (opt == "sleepy") avatar.set_expression(E::Sleepy);
+      else if (opt == "doubt")  avatar.set_expression(E::Doubt);
+      else                      avatar.set_expression(E::Neutral);
+      avatar.set_speaking(id(speaking_global));
       avatar.update_animations(millis());
       avatar.draw(it);
 
@@ -94,19 +103,20 @@ globals:
     restore_value: no
     initial_value: "false"
 
-# Wire HA controls into the avatar each frame. Replace the display lambda
-# above with this richer version once you've added the select/switch:
+# --- media-player binding --------------------------------------------------
+# Subscribes to a Home Assistant media_player entity and flips the avatar
+# into "speaking" mode whenever it's actively playing — so the mouth moves
+# along while music or TTS is going. Last writer wins between this and the
+# manual avatar_speaking switch above.
 #
-#   lambda: |-
-#     static stackchan_avatar::Avatar avatar;
-#     auto opt = id(avatar_expression).state;
-#     using E = stackchan_avatar::Expression;
-#     if      (opt == "happy")  avatar.set_expression(E::Happy);
-#     else if (opt == "sad")    avatar.set_expression(E::Sad);
-#     else if (opt == "angry")  avatar.set_expression(E::Angry);
-#     else if (opt == "sleepy") avatar.set_expression(E::Sleepy);
-#     else if (opt == "doubt")  avatar.set_expression(E::Doubt);
-#     else                      avatar.set_expression(E::Neutral);
-#     avatar.set_speaking(id(speaking_global));
-#     avatar.update_animations(millis());
-#     avatar.draw(it);
+# Replace `media_player.living_room` with your actual entity_id, or remove
+# this block if you don't have a media_player to bind.
+
+text_sensor:
+  - platform: homeassistant
+    id: media_player_state
+    entity_id: media_player.living_room   # TODO: set to your media_player
+    on_value:
+      then:
+        - lambda: |-
+            id(speaking_global) = (x == "playing");
