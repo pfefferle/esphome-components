@@ -15,14 +15,17 @@ jabber animation instead.
 ## Files
 
 - `esphome_avatar.h` — the avatar library (header-only).
+- `package.yaml` — ESPHome package partial that ships the header.
+  Consumers reference this from GitHub; no local copy needed.
 - `esphome.yaml` — starter config for an M5Stack Core (ESP32 + ILI9341
-  320×240). Includes optional HA `select` for expression and `switch`
-  for speaking state.
+  320×240). Pulls the avatar from GitHub via `packages:`. Includes
+  optional HA `select` for expression and `switch` for speaking state.
 
 ## Quick start
 
-1. Drop `esphome_avatar.h` and `esphome.yaml` into a fresh ESPHome
-   config directory (or use this directory directly).
+1. Copy `esphome.yaml` into your ESPHome config directory. The avatar
+   header is pulled from GitHub automatically — no need to download
+   `esphome_avatar.h` yourself.
 2. Create `secrets.yaml` next to `esphome.yaml`:
 
    ```yaml

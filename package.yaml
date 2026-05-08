@@ -1,0 +1,14 @@
+# Partial ESPHome config that ships the avatar header.
+# Consume from your own esphome.yaml via:
+#
+#   packages:
+#     avatar:
+#       url: https://github.com/pfefferle/esphome-avatar
+#       files: [package.yaml]
+#       ref: main
+#
+# After this, `stackchan_avatar::Avatar` is available in display lambdas.
+
+esphome:
+  includes:
+    - esphome_avatar.h
