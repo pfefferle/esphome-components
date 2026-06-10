@@ -27,12 +27,13 @@
 //     wide steady eyes, raised gaze, mouth stays closed
 //   - Doubt: the original expressed doubt via eyebrows; here it gets
 //     half-lidded flat-top eyes instead
-//   - extra effects the original doesn't have: Music (eighth notes
-//     drifting up the top-right corner) and Zzz ("ZZz" floating above
-//     the head, replacing the bubbles as Sleepy's default mark)
-//   - effect marks are animated instead of static: the notes dance side
-//     to side in place, the "ZZz" writes itself out horizontally, heart
-//     and bubbles float up with a horizontal wobble, the chill bars run
+//   - extra effects the original doesn't have: Music (a little melody
+//     of eighth notes writing itself out note by note) and Zzz ("ZZz"
+//     writing itself out letter by letter, replacing the bubbles as
+//     Sleepy's default mark)
+//   - effect marks are animated instead of static: notes and "ZZz"
+//     write themselves out horizontally glyph by glyph, heart and
+//     bubbles float up with a horizontal wobble, the chill bars run
 //     a wave; gloom lines hang over the brow and the anger vein throbs
 //     at the temple — anchored on the face, where those marks belong
 //   - idle mode (`set_idle()`): a self-running show neither the original
@@ -169,7 +170,15 @@ class Avatar {
     if (!idle_) {
       last_activity_ms_ = now_ms;  // timer starts fresh when idle is enabled
       idle_state_ = IdleState::Awake;
+      idle_fresh_ = true;
     } else {
+      if (idle_fresh_) {
+        // always start the show neutral; the mood wander takes over
+        // after the first hold
+        idle_fresh_ = false;
+        expression_ = Expression::Neutral;
+        mood_until_ms_ = now_ms + 15000 + (uint32_t)(frand_() * 30000.0f);
+      }
       if (speaking_ || listening_) last_activity_ms_ = now_ms;
       switch (idle_state_) {
         case IdleState::Awake:
@@ -446,12 +455,18 @@ class Avatar {
     return p - (int)p;
   }
 
-  // Two eighth notes dancing in place: side-to-side horizontal sway,
-  // out of phase with each other — no drifting away from the face.
+  // Eighth notes animated like the "ZZz": written out across the
+  // corner one after another over the loop, each note at its own
+  // pitch height, bobbing gently.
   void draw_music_(esphome::display::Display &it) {
-    const float w = 4.0f * (float)M_PI;  // two sways per 3 s loop
-    draw_note_(it, 262 + (int)(std::sin(effect_phase_ * w) * 5.0f), 58);
-    draw_note_(it, 288 - (int)(std::sin(effect_phase_ * w) * 5.0f), 78);
+    static constexpr int kX[3] = {240, 258, 276};
+    static constexpr int kY[3] = {58, 46, 54};
+    const int visible = 1 + std::min(2, (int)(effect_phase_ * 3.0f));
+    for (int i = 0; i < visible; i++) {
+      const int bob = (int)(
+          std::sin((effect_phase_ + i * 0.25f) * 2.0f * (float)M_PI) * 2.0f);
+      draw_note_(it, kX[i], kY[i] + bob);
+    }
   }
 
   void draw_note_(esphome::display::Display &it, int x, int y) {
@@ -554,6 +569,7 @@ class Avatar {
   Effect       effect_{Effect::Auto};
   float        effect_phase_{0.0f};
   bool         idle_{false};
+  bool         idle_fresh_{true};
   IdleState    idle_state_{IdleState::Awake};
   uint32_t     idle_sleep_after_{300000};    // 5 min
   uint32_t     idle_sleep_duration_{120000}; // 2 min

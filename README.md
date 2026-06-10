@@ -10,10 +10,11 @@ from the original.
 Ported from [stack-chan/m5stack-avatar][upstream] and retargeted at
 ESPHome's display API. Real lip sync is intentionally omitted —
 `set_speaking(true)` drives random syllable-like mouth levels instead,
-standing in for the original's audio-level-driven lipSync task. There
-is also a `set_listening(true)` state the original doesn't have: wide
-attentive eyes with a steady, slightly raised gaze — the mouth stays
-firmly closed while listening.
+standing in for the original's audio-level-driven lipSync task. On top
+of the port there are animated [effect marks](#effects) (music notes,
+"ZZz", heart, …), a `set_listening(true)` state (wide attentive eyes,
+mouth firmly closed), and an [idle mode](#idle-mode) that keeps the
+face alive on its own.
 
 [upstream]: https://github.com/stack-chan/m5stack-avatar
 
@@ -23,8 +24,9 @@ firmly closed while listening.
 - `package.yaml` — ESPHome package partial that ships the header.
   Consumers reference this from GitHub; no local copy needed.
 - `esphome.yaml` — starter config for an M5Stack Core (ESP32 + ILI9341
-  320×240). Pulls the avatar from GitHub via `packages:`. Includes
-  optional HA `select` for expression and `switch` for speaking state.
+  320×240). Pulls the avatar from GitHub via `packages:`. Exposes HA
+  selects for expression/effect, switches for idle/speaking/listening,
+  and an optional media_player binding.
 
 ## Quick start
 
@@ -65,8 +67,8 @@ enum class Expression : uint8_t {
 enum class Effect : uint8_t {
   Auto,     // follow the expression (original behavior), default
   None,     // hide the mark
-  Music,    // eighth notes drifting up the top-right corner
-  Zzz,      // "ZZz" floating above the head
+  Music,    // a little melody of eighth notes, written out note by note
+  Zzz,      // "ZZz" written out above the head, letter by letter
   Heart, Anger, Sweat, Chill, Bubbles   // original Effect.h marks
 };
 
@@ -149,8 +151,9 @@ nice to leave on a desk. Neither the original lib nor the stack-chan
 firmware has this built in (the lib's expression changes are app-driven;
 the firmware's face demo cycles emotions on a plain timer):
 
-- **Mood wander** — picks a calm expression every 15–45 s, weighted
-  towards neutral (50 %), happy (30 %), doubt (20 %).
+- **Mood wander** — always starts neutral, then picks a calm
+  expression every 15–45 s, weighted towards neutral (50 %),
+  happy (30 %), doubt (20 %).
 - **Doze off** — after 5 min without speaking/listening it falls
   asleep: Sleepy face, floating "ZZz", breathing slows to a deep
   ~6.6 s cycle, gaze settles low, saccades stop.
@@ -165,29 +168,31 @@ count as activity. Timings are configurable via
 
 ## Effects
 
-A small mark in the top-right corner, ported from the original
-`Effect.h` and extended. With `Effect::Auto` (the default) it follows
-the expression, exactly like the original:
+A small mark drawn near the top-right of the face, ported from the
+original `Effect.h` and extended. With `Effect::Auto` (the default) it
+follows the expression, exactly like the original:
 
 | Expression | Auto mark |
 |------------|-----------|
-| Happy      | pulsing heart |
-| Angry      | anger mark |
-| Sad        | chill lines |
+| Happy      | floating heart |
+| Angry      | throbbing anger vein at the temple |
+| Sad        | gloom lines over the brow |
 | Doubt      | sweat drop |
-| Sleepy     | floating "ZZz" (original's bubbles: `Effect::Bubbles`) |
+| Sleepy     | "ZZz" (original's bubbles: `Effect::Bubbles`) |
 
-`Effect::Music` shows eighth notes — the starter config switches to it
-automatically while the bound media_player is playing, and back to
-`auto` when it stops. `Effect::None` hides the mark.
+`Effect::Music` shows a little melody of eighth notes — the starter
+config switches to it automatically while the bound media_player is
+playing, and back to `auto` when it stops. `Effect::None` hides the
+mark.
 
-All marks are animated, with mostly horizontal motion: the two notes
-dance side to side in place (out of phase), the "ZZz" writes itself
-out horizontally letter by letter, heart and bubbles float up with a
-pronounced sideways wobble. Three marks are anchored on the face,
-where they need to sit to read right: the sweat drop bobs next to the
-temple, the anger vein throbs above the right eye, and the gloom lines
-hang over the brow, running a staggered wave.
+All marks are animated, with mostly horizontal motion: notes and
+"ZZz" write themselves out glyph by glyph on a 3 s loop — the three
+notes appear one after another, each at its own pitch height — while
+heart and bubbles float up with a pronounced sideways wobble. Three
+marks are anchored on the face, where they need to sit to read right:
+the sweat drop bobs next to the temple, the anger vein throbs above
+the right eye, and the gloom lines hang over the brow, running a
+staggered wave.
 
 ## Driving from Home Assistant
 
@@ -200,9 +205,10 @@ The starter `esphome.yaml` exposes:
 - `switch.avatar_speaking` — toggles the speech (mouth) animation
 - `switch.avatar_listening` — attentive face, mouth stays closed
 
-Replace the basic `display:` lambda with the richer one shown in
-comments at the bottom of `esphome.yaml` to wire the HA controls into
-the avatar.
+The starter's `display:` lambda already wires all of these in. The
+media_player binding at the bottom of `esphome.yaml` additionally
+flips speaking + the music effect automatically while a bound HA
+media_player is playing — set its `entity_id`, or remove the block.
 
 ## Credits
 
