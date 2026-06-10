@@ -30,6 +30,8 @@
 //   - extra effects the original doesn't have: Music (eighth notes
 //     drifting up the top-right corner) and Zzz ("ZZz" floating above
 //     the head, replacing the bubbles as Sleepy's default mark)
+//   - effect marks sit slightly smaller and higher than the original's
+//     and pulse more gently, so they stay clear of the face
 //
 // Default face geometry assumes a 320x240 panel (M5Stack Core / CoreS3).
 // For smaller displays, scale via FaceGeometry or wrap with your own scale.
@@ -310,7 +312,8 @@ class Avatar {
   }
 
   // --- effects: top-right marks, ported from the original Effect.h plus
-  // the Music / Zzz additions. Positions are original (270..290, 0..110).
+  // the Music / Zzz additions. Tucked into the corner (x >= ~260,
+  // y <= ~85) with gentle pulsing so they read as accents, not noise.
   void draw_effect_(esphome::display::Display &it) {
     Effect e = effect_;
     if (e == Effect::Auto) {
@@ -332,45 +335,46 @@ class Avatar {
         draw_zzz_(it);
         break;
       case Effect::Heart:
-        draw_heart_(it, 280, 50, 12 + (int)(12 * 0.4f * pulse));
+        draw_heart_(it, 282, 46, 10 + (int)(10 * 0.2f * pulse));
         break;
       case Effect::Anger:
-        draw_anger_(it, 280, 50, 12 + (int)std::fabs(12 * 0.4f * pulse));
+        draw_anger_(it, 282, 46, 10 + (int)std::fabs(10 * 0.2f * pulse));
         break;
       case Effect::Sweat:
-        draw_sweat_(it, 290, 110 - (int)(5 * pulse),
-                    7 - (int)(7 * 0.2f * pulse));
+        draw_sweat_(it, 288, 78 - (int)(3 * pulse),
+                    6 - (int)(6 * 0.15f * pulse));
         break;
       case Effect::Chill:
-        draw_chill_(it, 270, 0, 30, pulse);
+        draw_chill_(it, 272, 0, 26, pulse);
         break;
       case Effect::Bubbles:
-        draw_bubble_(it, 290, 40, 10 + (int)(10 * 0.2f * pulse));
-        draw_bubble_(it, 270, 52, 6 - (int)(6 * 0.2f * pulse));
+        draw_bubble_(it, 290, 38, 9 + (int)(9 * 0.15f * pulse));
+        draw_bubble_(it, 272, 50, 5 - (int)(5 * 0.15f * pulse));
         break;
       default:
         break;
     }
   }
 
-  // Eighth notes drifting up through the top-right corner, wobbling
-  // sideways — looped via effect_phase_, one third out of phase each.
+  // Two small eighth notes drifting up the top-right corner, half a
+  // loop apart, each with a quiet gap per loop — kept high and well
+  // clear of the face so the mark stays subtle.
   void draw_music_(esphome::display::Display &it) {
-    for (int i = 0; i < 3; i++) {
-      float p = effect_phase_ + (float)i / 3.0f;
+    for (int i = 0; i < 2; i++) {
+      float p = effect_phase_ + i * 0.5f;
       p -= (int)p;
-      const int x = 252 + i * 22 +
-                    (int)(std::sin(p * 2.0f * (float)M_PI) * 4.0f);
-      const int y = 96 - (int)(p * 64.0f);
+      if (p > 0.8f) continue;  // breathing room between notes
+      const int x = 272 + i * 20 +
+                    (int)(std::sin(p * 2.0f * (float)M_PI) * 2.0f);
+      const int y = 76 - (int)(p * 52.0f);
       draw_note_(it, x, y);
     }
   }
 
   void draw_note_(esphome::display::Display &it, int x, int y) {
-    it.filled_circle(x, y, 4, palette_.primary);                  // head
-    it.filled_rectangle(x + 3, y - 16, 2, 16, palette_.primary);  // stem
-    it.line(x + 4, y - 16, x + 10, y - 11, palette_.primary);     // flag
-    it.line(x + 4, y - 11, x + 9, y - 7, palette_.primary);
+    it.filled_circle(x, y, 3, palette_.primary);                  // head
+    it.filled_rectangle(x + 2, y - 12, 2, 12, palette_.primary);  // stem
+    it.line(x + 3, y - 12, x + 8, y - 8, palette_.primary);       // flag
   }
 
   // "ZZz" floating above the head, growing as it drifts away, with a
@@ -378,9 +382,9 @@ class Avatar {
   // those are still available as Effect::Bubbles.)
   void draw_zzz_(esphome::display::Display &it) {
     const float w = 2.0f * (float)M_PI;
-    draw_z_(it, 248, 92 + (int)(std::sin(effect_phase_ * w) * 2.0f), 8);
-    draw_z_(it, 264, 64 + (int)(std::sin((effect_phase_ + 0.3f) * w) * 2.0f), 12);
-    draw_z_(it, 284, 30 + (int)(std::sin((effect_phase_ + 0.6f) * w) * 2.0f), 16);
+    draw_z_(it, 262, 76 + (int)(std::sin(effect_phase_ * w) * 2.0f), 7);
+    draw_z_(it, 276, 52 + (int)(std::sin((effect_phase_ + 0.3f) * w) * 2.0f), 10);
+    draw_z_(it, 292, 26 + (int)(std::sin((effect_phase_ + 0.6f) * w) * 2.0f), 14);
   }
 
   // A 2px-thick "Z" glyph drawn with lines; (x, y) is the top-left, s the size.
