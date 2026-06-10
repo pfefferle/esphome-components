@@ -77,6 +77,11 @@ class Avatar {
   void set_listening(bool l);  // attentive eyes, mouth stays closed
   void set_effect(Effect e);   // top-right mark, Auto = follow expression
 
+  // Idle mode: self-running mood wander + doze/wake cycle
+  void set_idle(bool i);
+  void set_idle_sleep_after(uint32_t ms);     // default 5 min, 0 = never
+  void set_idle_sleep_duration(uint32_t ms);  // default 2 min
+
   // Per-frame: drive blink/saccades/breath/speech from millis()
   void update_animations(uint32_t now_ms);
 
@@ -137,6 +142,27 @@ The mouth is the original Stack-chan rectangle: a wide thin line
 (up to 50×60 px). Sizes and positions live in `FaceGeometry`; the eye
 carving logic is the place to tweak or add expressions.
 
+## Idle mode
+
+`set_idle(true)` turns the avatar into a self-running little show —
+nice to leave on a desk. Neither the original lib nor the stack-chan
+firmware has this built in (the lib's expression changes are app-driven;
+the firmware's face demo cycles emotions on a plain timer):
+
+- **Mood wander** — picks a calm expression every 15–45 s, weighted
+  towards neutral (50 %), happy (30 %), doubt (20 %).
+- **Doze off** — after 5 min without speaking/listening it falls
+  asleep: Sleepy face, floating "ZZz", breathing slows to a deep
+  ~6.6 s cycle, gaze settles low, saccades stop.
+- **Wake up** — after a 2 min nap (or immediately when it has to speak
+  or listen) it wakes with a bright-eyed happy stretch, then returns
+  to the mood wander.
+
+While idle mode is on it owns the expression — `set_expression()` is
+overridden each frame. Speaking and listening still work normally and
+count as activity. Timings are configurable via
+`set_idle_sleep_after()` / `set_idle_sleep_duration()`.
+
 ## Effects
 
 A small mark in the top-right corner, ported from the original
@@ -163,6 +189,8 @@ The starter `esphome.yaml` exposes:
 
 - `select.avatar_expression` — `neutral | happy | sad | angry | sleepy | doubt`
 - `select.avatar_effect` — `auto | none | music | zzz | heart | anger | sweat | chill | bubbles`
+- `switch.avatar_idle` — self-running mood wander + doze/wake (on by
+  default; overrides the expression select while on)
 - `switch.avatar_speaking` — toggles the speech (mouth) animation
 - `switch.avatar_listening` — attentive face, mouth stays closed
 

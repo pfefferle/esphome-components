@@ -64,6 +64,9 @@ display:
       else                      avatar.set_expression(E::Neutral);
       avatar.set_speaking(id(speaking_global));
       avatar.set_listening(id(listening_global));
+      // While idle mode is on, the avatar wanders moods on its own and
+      // overrides the expression select above each frame.
+      avatar.set_idle(id(idle_global));
       auto fx = id(avatar_effect).state;
       using FX = stackchan_avatar::Effect;
       if      (fx == "none")    avatar.set_effect(FX::None);
@@ -129,6 +132,22 @@ switch:
       - lambda: |-
           id(speaking_global) = false;
 
+  # Idle mode (on by default): the avatar entertains itself — wanders
+  # between calm moods, dozes off after 5 min of inactivity (Sleepy face,
+  # ZZz, slow breathing), naps for 2 min, and wakes up on its own or as
+  # soon as it speaks/listens. Turn off for manual expression control.
+  - platform: template
+    name: "Avatar Idle"
+    id: avatar_idle
+    optimistic: true
+    restore_mode: ALWAYS_ON
+    turn_on_action:
+      - lambda: |-
+          id(idle_global) = true;
+    turn_off_action:
+      - lambda: |-
+          id(idle_global) = false;
+
   # Listening keeps the mouth closed — the avatar perks up instead:
   # wide attentive eyes, steady slightly-raised gaze, saccades paused.
   - platform: template
@@ -151,6 +170,10 @@ globals:
     type: bool
     restore_value: no
     initial_value: "false"
+  - id: idle_global
+    type: bool
+    restore_value: no
+    initial_value: "true"
 
 # --- media-player binding --------------------------------------------------
 # Subscribes to a Home Assistant media_player entity. While it's actively

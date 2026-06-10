@@ -32,6 +32,10 @@
 //     the head, replacing the bubbles as Sleepy's default mark)
 //   - effect marks sit slightly smaller and higher than the original's
 //     and pulse more gently, so they stay clear of the face
+//   - idle mode (`set_idle()`): a self-running show neither the original
+//     lib nor the stack-chan firmware has — wanders between calm moods,
+//     dozes off after inactivity (Sleepy + "ZZz" + slow deep breathing),
+//     and wakes up on its own or when it has to speak or listen
 //
 // Default face geometry assumes a 320x240 panel (M5Stack Core / CoreS3).
 // For smaller displays, scale via FaceGeometry or wrap with your own scale.
@@ -117,6 +121,18 @@ class Avatar {
   void set_listening(bool l)        { listening_ = l; }
   void set_effect(Effect e)         { effect_ = e; }
 
+  // Idle mode: a self-running little show — wanders between calm moods
+  // (mostly neutral, sometimes happy or doubt), dozes off after a while
+  // of inactivity (Sleepy face, "ZZz", slow deep breathing, lowered
+  // gaze), and wakes up on its own or as soon as it has to speak or
+  // listen. While enabled it owns the expression; set_expression()
+  // calls are overridden each frame.
+  void set_idle(bool i)                     { idle_ = i; }
+  // Doze after this much inactivity (default 5 min; 0 = never doze)
+  void set_idle_sleep_after(uint32_t ms)    { idle_sleep_after_ = ms; }
+  // Nap length before waking up on its own (default 2 min)
+  void set_idle_sleep_duration(uint32_t ms) { idle_sleep_duration_ = ms; }
+
   // Manual animation axes (skip update_animations if you drive these):
   void set_blink_phase(float p)     { blink_ = std::clamp(p, 0.0f, 1.0f); }
   void set_breath_phase(float p)    { breath_ = std::clamp(p, -1.0f, 1.0f); }
@@ -146,18 +162,69 @@ class Avatar {
   // original facialLoop. If you want manual control over any axis, call
   // the set_*_phase setters yourself instead.
   void update_animations(uint32_t now_ms) {
-    const float t = now_ms / 1000.0f;
+    // --- idle mode: mood wander -> doze -> wake, on top of everything else
+    if (!idle_) {
+      last_activity_ms_ = now_ms;  // timer starts fresh when idle is enabled
+      idle_state_ = IdleState::Awake;
+    } else {
+      if (speaking_ || listening_) last_activity_ms_ = now_ms;
+      switch (idle_state_) {
+        case IdleState::Awake:
+          if (idle_sleep_after_ > 0 &&
+              now_ms - last_activity_ms_ >= idle_sleep_after_) {
+            idle_state_ = IdleState::Sleeping;
+            idle_until_ms_ = now_ms + idle_sleep_duration_;
+          } else if ((int32_t)(now_ms - mood_until_ms_) >= 0) {
+            // calm mood wander, held for 15-45 s each
+            const float roll = frand_();
+            expression_ = roll < 0.5f   ? Expression::Neutral
+                          : roll < 0.8f ? Expression::Happy
+                                        : Expression::Doubt;
+            mood_until_ms_ = now_ms + 15000 + (uint32_t)(frand_() * 30000.0f);
+          }
+          break;
+        case IdleState::Sleeping:
+          expression_ = Expression::Sleepy;
+          if (speaking_ || listening_ ||
+              (int32_t)(now_ms - idle_until_ms_) >= 0) {
+            idle_state_ = IdleState::Waking;
+            idle_until_ms_ = now_ms + 3000;
+            last_activity_ms_ = now_ms;
+          }
+          break;
+        case IdleState::Waking:
+          expression_ = Expression::Happy;  // bright-eyed stretch
+          if ((int32_t)(now_ms - idle_until_ms_) >= 0) {
+            idle_state_ = IdleState::Awake;
+            expression_ = Expression::Neutral;
+            mood_until_ms_ = now_ms + 15000 + (uint32_t)(frand_() * 30000.0f);
+          }
+          break;
+      }
+    }
+    const bool asleep = idle_ && idle_state_ == IdleState::Sleeping;
 
-    // --- breath: ~3.3 s sine (original: 100 ticks at 33 ms)
-    breath_ = std::sin(t * 2.0f * (float)M_PI / 3.3f);
+    // --- breath: ~3.3 s sine (original: 100 ticks at 33 ms), slowing to
+    // a deep ~6.6 s cycle while dozing. Phase-accumulated so the rate
+    // change doesn't make the face jump.
+    if (last_ms_ == 0) last_ms_ = now_ms;
+    breath_phase_ +=
+        (float)(now_ms - last_ms_) / 1000.0f / (asleep ? 6.6f : 3.3f);
+    breath_phase_ -= (int)breath_phase_;
+    breath_ = std::sin(breath_phase_ * 2.0f * (float)M_PI);
+    last_ms_ = now_ms;
 
     // --- saccades: gaze jumps to a random direction, then holds.
     // Original: interval 500 + 100*random(20) ms, gaze in [-1, 1].
     // While listening, the gaze locks on slightly raised — focused on
-    // the person talking instead of wandering.
+    // the person talking instead of wandering. While dozing it settles
+    // low instead.
     if (listening_) {
       gaze_h_ = 0.0f;
       gaze_v_ = -0.4f;
+    } else if (asleep) {
+      gaze_h_ = 0.0f;
+      gaze_v_ = 0.6f;
     } else if ((int32_t)(now_ms - next_saccade_ms_) >= 0) {
       gaze_h_ = frand_() * 2.0f - 1.0f;
       gaze_v_ = frand_() * 2.0f - 1.0f;
@@ -447,9 +514,20 @@ class Avatar {
     return esphome::Color((uint8_t)(rgb >> 16), (uint8_t)(rgb >> 8), (uint8_t)rgb);
   }
 
+  enum class IdleState : uint8_t { Awake, Sleeping, Waking };
+
   Expression   expression_{Expression::Neutral};
   Effect       effect_{Effect::Auto};
   float        effect_phase_{0.0f};
+  bool         idle_{false};
+  IdleState    idle_state_{IdleState::Awake};
+  uint32_t     idle_sleep_after_{300000};    // 5 min
+  uint32_t     idle_sleep_duration_{120000}; // 2 min
+  uint32_t     last_activity_ms_{0};
+  uint32_t     idle_until_ms_{0};
+  uint32_t     mood_until_ms_{0};
+  float        breath_phase_{0.0f};
+  uint32_t     last_ms_{0};
   bool         eye_open_{true};
   float        blink_{1.0f};
   float        breath_{0.0f};
