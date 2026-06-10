@@ -16,6 +16,9 @@
 //     the original Eye::draw() — this port has no eyebrows
 //   - the mouth is the original wide rectangle (90px closed line that
 //     narrows and opens vertically while speaking)
+//   - top-right effect marks ported from Effect.h (heart, anger mark,
+//     sweat drop, chill lines, sleep bubbles), pulsing with breath;
+//     by default they follow the expression like the original
 //
 // Deviations:
 //   - lip sync: the original samples real TTS audio levels; here
@@ -24,6 +27,9 @@
 //     wide steady eyes, raised gaze, mouth stays closed
 //   - Doubt: the original expressed doubt via eyebrows; here it gets
 //     half-lidded flat-top eyes instead
+//   - extra effects the original doesn't have: Music (eighth notes
+//     drifting up the top-right corner) and Zzz ("ZZz" floating above
+//     the head, replacing the bubbles as Sleepy's default mark)
 //
 // Default face geometry assumes a 320x240 panel (M5Stack Core / CoreS3).
 // For smaller displays, scale via FaceGeometry or wrap with your own scale.
@@ -51,6 +57,21 @@ enum class Expression : uint8_t {
   Angry   = 3,
   Sleepy  = 4,
   Doubt   = 5,
+};
+
+// Top-right effect marks. Auto follows the expression like the original
+// Effect.h (Happy → Heart, Angry → Anger, Sad → Chill, Doubt → Sweat,
+// Sleepy → Zzz); the rest force a specific mark, None hides them.
+enum class Effect : uint8_t {
+  Auto    = 0,
+  None    = 1,
+  Music   = 2,  // eighth notes drifting upward (e.g. media player active)
+  Zzz     = 3,  // "ZZz" floating above the head
+  Heart   = 4,
+  Anger   = 5,
+  Sweat   = 6,
+  Chill   = 7,
+  Bubbles = 8,  // the original's Sleepy mark
 };
 
 // Three-slot palette mirroring the original m5stack-avatar ColorPalette:
@@ -92,6 +113,7 @@ class Avatar {
   // Listening: attentive face — wide steady eyes looking slightly up,
   // saccades paused, mouth firmly closed. No mouth animation.
   void set_listening(bool l)        { listening_ = l; }
+  void set_effect(Effect e)         { effect_ = e; }
 
   // Manual animation axes (skip update_animations if you drive these):
   void set_blink_phase(float p)     { blink_ = std::clamp(p, 0.0f, 1.0f); }
@@ -150,6 +172,9 @@ class Avatar {
     }
     blink_ = eye_open_ ? 1.0f : 0.0f;
 
+    // --- effects: shared 3 s loop phase for drifting/bobbing marks
+    effect_phase_ = (float)(now_ms % 3000) / 3000.0f;
+
     // --- speech: random mouth levels at syllable rate, eased — stands in
     // for the original lipSync task, which samples real TTS audio levels
     // every 33 ms.
@@ -183,6 +208,7 @@ class Avatar {
               /*is_left=*/true, open);
 
     draw_mouth_(it, by);
+    draw_effect_(it);
   }
 
  protected:
@@ -208,8 +234,9 @@ class Avatar {
         // corner sits inward for angry, outward for sad (original:
         // x2 = !isLeft != !(exp == Sad) ? x0 : x1).
         const bool sad = expression_ == Expression::Sad;
-        carve_lid_(it, cx - r, cx + r, cy - r, r,
-                   /*apex_right=*/is_left == sad);
+        const int x0 = cx - r, y0 = cy - r, x1 = cx + r;
+        const int x2 = (is_left != sad) ? x0 : x1;
+        fill_triangle_(it, x0, y0, x1, y0, x2, y0 + r, palette_.background);
         break;
       }
       case Expression::Happy:
@@ -233,16 +260,33 @@ class Avatar {
     }
   }
 
-  // Background triangle (x0,y0)-(x1,y0)-(apex,y0+r) via scanlines —
-  // ESPHome's filled_triangle is recent; this keeps the minimum version low.
-  void carve_lid_(esphome::display::Display &it, int x0, int x1, int y0,
-                  int r, bool apex_right) {
-    for (int i = 0; i <= r; i++) {
-      const float f = (float)i / (float)r;
-      const int shrink = (int)((x1 - x0) * f);
-      const int xl = apex_right ? x0 + shrink : x0;
-      const int xr = apex_right ? x1 : x1 - shrink;
-      it.horizontal_line(xl, y0 + i, xr - xl + 1, palette_.background);
+  // Filled triangle via scanlines — ESPHome's Display::filled_triangle()
+  // is recent; this keeps the minimum supported version low.
+  void fill_triangle_(esphome::display::Display &it, int x0, int y0, int x1,
+                      int y1, int x2, int y2, esphome::Color c) {
+    if (y0 > y1) { std::swap(x0, x1); std::swap(y0, y1); }
+    if (y0 > y2) { std::swap(x0, x2); std::swap(y0, y2); }
+    if (y1 > y2) { std::swap(x1, x2); std::swap(y1, y2); }
+    if (y0 == y2) {  // degenerate: all on one row
+      const int xl = std::min(x0, std::min(x1, x2));
+      const int xr = std::max(x0, std::max(x1, x2));
+      it.horizontal_line(xl, y0, xr - xl + 1, c);
+      return;
+    }
+    for (int y = y0; y <= y2; y++) {
+      // long edge (v0 -> v2) and the short edge active on this row
+      const float xa = x0 + (float)(x2 - x0) * (float)(y - y0) / (float)(y2 - y0);
+      float xb;
+      if (y < y1) {
+        xb = x0 + (float)(x1 - x0) * (float)(y - y0) / (float)(y1 - y0);
+      } else if (y2 > y1) {
+        xb = x1 + (float)(x2 - x1) * (float)(y - y1) / (float)(y2 - y1);
+      } else {
+        xb = (float)x1;
+      }
+      const int xl = (int)std::floor(std::min(xa, xb));
+      const int xr = (int)std::ceil(std::max(xa, xb));
+      it.horizontal_line(xl, y, xr - xl + 1, c);
     }
   }
 
@@ -265,6 +309,128 @@ class Avatar {
     }
   }
 
+  // --- effects: top-right marks, ported from the original Effect.h plus
+  // the Music / Zzz additions. Positions are original (270..290, 0..110).
+  void draw_effect_(esphome::display::Display &it) {
+    Effect e = effect_;
+    if (e == Effect::Auto) {
+      switch (expression_) {
+        case Expression::Happy:  e = Effect::Heart;  break;
+        case Expression::Angry:  e = Effect::Anger;  break;
+        case Expression::Sad:    e = Effect::Chill;  break;
+        case Expression::Doubt:  e = Effect::Sweat;  break;
+        case Expression::Sleepy: e = Effect::Zzz;    break;
+        default:                 e = Effect::None;   break;
+      }
+    }
+    const float pulse = breath_;  // original marks pulse with breath
+    switch (e) {
+      case Effect::Music:
+        draw_music_(it);
+        break;
+      case Effect::Zzz:
+        draw_zzz_(it);
+        break;
+      case Effect::Heart:
+        draw_heart_(it, 280, 50, 12 + (int)(12 * 0.4f * pulse));
+        break;
+      case Effect::Anger:
+        draw_anger_(it, 280, 50, 12 + (int)std::fabs(12 * 0.4f * pulse));
+        break;
+      case Effect::Sweat:
+        draw_sweat_(it, 290, 110 - (int)(5 * pulse),
+                    7 - (int)(7 * 0.2f * pulse));
+        break;
+      case Effect::Chill:
+        draw_chill_(it, 270, 0, 30, pulse);
+        break;
+      case Effect::Bubbles:
+        draw_bubble_(it, 290, 40, 10 + (int)(10 * 0.2f * pulse));
+        draw_bubble_(it, 270, 52, 6 - (int)(6 * 0.2f * pulse));
+        break;
+      default:
+        break;
+    }
+  }
+
+  // Eighth notes drifting up through the top-right corner, wobbling
+  // sideways — looped via effect_phase_, one third out of phase each.
+  void draw_music_(esphome::display::Display &it) {
+    for (int i = 0; i < 3; i++) {
+      float p = effect_phase_ + (float)i / 3.0f;
+      p -= (int)p;
+      const int x = 252 + i * 22 +
+                    (int)(std::sin(p * 2.0f * (float)M_PI) * 4.0f);
+      const int y = 96 - (int)(p * 64.0f);
+      draw_note_(it, x, y);
+    }
+  }
+
+  void draw_note_(esphome::display::Display &it, int x, int y) {
+    it.filled_circle(x, y, 4, palette_.primary);                  // head
+    it.filled_rectangle(x + 3, y - 16, 2, 16, palette_.primary);  // stem
+    it.line(x + 4, y - 16, x + 10, y - 11, palette_.primary);     // flag
+    it.line(x + 4, y - 11, x + 9, y - 7, palette_.primary);
+  }
+
+  // "ZZz" floating above the head, growing as it drifts away, with a
+  // gentle bob. (Our replacement for the original's sleep bubbles —
+  // those are still available as Effect::Bubbles.)
+  void draw_zzz_(esphome::display::Display &it) {
+    const float w = 2.0f * (float)M_PI;
+    draw_z_(it, 248, 92 + (int)(std::sin(effect_phase_ * w) * 2.0f), 8);
+    draw_z_(it, 264, 64 + (int)(std::sin((effect_phase_ + 0.3f) * w) * 2.0f), 12);
+    draw_z_(it, 284, 30 + (int)(std::sin((effect_phase_ + 0.6f) * w) * 2.0f), 16);
+  }
+
+  // A 2px-thick "Z" glyph drawn with lines; (x, y) is the top-left, s the size.
+  void draw_z_(esphome::display::Display &it, int x, int y, int s) {
+    for (int t = 0; t < 2; t++) {
+      it.horizontal_line(x, y + t, s, palette_.primary);
+      it.horizontal_line(x, y + s - 2 + t, s, palette_.primary);
+      it.line(x + s - 1, y + t, x, y + s - 2 + t, palette_.primary);
+    }
+  }
+
+  void draw_heart_(esphome::display::Display &it, int x, int y, int r) {
+    it.filled_circle(x - r / 2, y, r / 2, palette_.primary);
+    it.filled_circle(x + r / 2, y, r / 2, palette_.primary);
+    const int a = (int)((std::sqrt(2.0f) * r) / 4.0f);
+    fill_triangle_(it, x, y, x - r / 2 - a, y + a, x + r / 2 + a, y + a,
+                   palette_.primary);
+    fill_triangle_(it, x, y + r / 2 + 2 * a, x - r / 2 - a, y + a,
+                   x + r / 2 + a, y + a, palette_.primary);
+  }
+
+  void draw_anger_(esphome::display::Display &it, int x, int y, int r) {
+    it.filled_rectangle(x - r / 3, y - r, (r * 2) / 3, r * 2, palette_.primary);
+    it.filled_rectangle(x - r, y - r / 3, r * 2, (r * 2) / 3, palette_.primary);
+    it.filled_rectangle(x - r / 3 + 2, y - r, (r * 2) / 3 - 4, r * 2,
+                        palette_.background);
+    it.filled_rectangle(x - r, y - r / 3 + 2, r * 2, (r * 2) / 3 - 4,
+                        palette_.background);
+  }
+
+  void draw_sweat_(esphome::display::Display &it, int x, int y, int r) {
+    it.filled_circle(x, y, r, palette_.primary);
+    const int a = (int)((std::sqrt(3.0f) * r) / 2.0f);
+    fill_triangle_(it, x, y - r * 2, x - a, y - r / 2, x + a, y - r / 2,
+                   palette_.primary);
+  }
+
+  void draw_chill_(esphome::display::Display &it, int x, int y, int r,
+                   float offset) {
+    const int h = r + (int)std::fabs(r * 0.2f * offset);
+    it.filled_rectangle(x - r / 2, y, 3, h / 2, palette_.primary);
+    it.filled_rectangle(x, y, 3, (h * 3) / 4, palette_.primary);
+    it.filled_rectangle(x + r / 2, y, 3, h, palette_.primary);
+  }
+
+  void draw_bubble_(esphome::display::Display &it, int x, int y, int r) {
+    it.circle(x, y, r, palette_.primary);
+    it.circle(x - r / 4, y - r / 4, r / 4, palette_.primary);
+  }
+
   // xorshift32 — deterministic, no libc rand() on the render path.
   float frand_() {
     rng_ ^= rng_ << 13;
@@ -278,6 +444,8 @@ class Avatar {
   }
 
   Expression   expression_{Expression::Neutral};
+  Effect       effect_{Effect::Auto};
+  float        effect_phase_{0.0f};
   bool         eye_open_{true};
   float        blink_{1.0f};
   float        breath_{0.0f};

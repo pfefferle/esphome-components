@@ -64,6 +64,17 @@ display:
       else                      avatar.set_expression(E::Neutral);
       avatar.set_speaking(id(speaking_global));
       avatar.set_listening(id(listening_global));
+      auto fx = id(avatar_effect).state;
+      using FX = stackchan_avatar::Effect;
+      if      (fx == "none")    avatar.set_effect(FX::None);
+      else if (fx == "music")   avatar.set_effect(FX::Music);
+      else if (fx == "zzz")     avatar.set_effect(FX::Zzz);
+      else if (fx == "heart")   avatar.set_effect(FX::Heart);
+      else if (fx == "anger")   avatar.set_effect(FX::Anger);
+      else if (fx == "sweat")   avatar.set_effect(FX::Sweat);
+      else if (fx == "chill")   avatar.set_effect(FX::Chill);
+      else if (fx == "bubbles") avatar.set_effect(FX::Bubbles);
+      else                      avatar.set_effect(FX::Auto);
       avatar.update_animations(millis());
       avatar.draw(it);
 
@@ -85,6 +96,25 @@ select:
       - sleepy
       - doubt
     initial_option: neutral
+
+  # Top-right effect mark. "auto" follows the expression like the
+  # original (happy -> heart, angry -> anger mark, sad -> chill lines,
+  # doubt -> sweat drop, sleepy -> ZZz). The rest force a specific mark.
+  - platform: template
+    name: "Avatar Effect"
+    id: avatar_effect
+    optimistic: true
+    options:
+      - auto
+      - none
+      - music
+      - zzz
+      - heart
+      - anger
+      - sweat
+      - chill
+      - bubbles
+    initial_option: auto
 
 switch:
   - platform: template
@@ -123,10 +153,10 @@ globals:
     initial_value: "false"
 
 # --- media-player binding --------------------------------------------------
-# Subscribes to a Home Assistant media_player entity and flips the avatar
-# into "speaking" mode whenever it's actively playing — so the mouth moves
-# along while music or TTS is going. Last writer wins between this and the
-# manual avatar_speaking switch above.
+# Subscribes to a Home Assistant media_player entity. While it's actively
+# playing, the avatar mouths along AND music notes drift through the
+# top-right corner; both revert when playback stops. Last writer wins
+# between this and the manual switches/select above.
 #
 # Replace `media_player.living_room` with your actual entity_id, or remove
 # this block if you don't have a media_player to bind.
@@ -139,3 +169,6 @@ text_sensor:
       then:
         - lambda: |-
             id(speaking_global) = (x == "playing");
+        - select.set:
+            id: avatar_effect
+            option: !lambda 'return x == "playing" ? "music" : "auto";'

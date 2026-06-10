@@ -62,11 +62,20 @@ enum class Expression : uint8_t {
   Neutral, Happy, Sad, Angry, Sleepy, Doubt
 };
 
+enum class Effect : uint8_t {
+  Auto,     // follow the expression (original behavior), default
+  None,     // hide the mark
+  Music,    // eighth notes drifting up the top-right corner
+  Zzz,      // "ZZz" floating above the head
+  Heart, Anger, Sweat, Chill, Bubbles   // original Effect.h marks
+};
+
 class Avatar {
   // State
   void set_expression(Expression e);
   void set_speaking(bool s);   // animates the mouth (random syllables)
   void set_listening(bool l);  // attentive eyes, mouth stays closed
+  void set_effect(Effect e);   // top-right mark, Auto = follow expression
 
   // Per-frame: drive blink/saccades/breath/speech from millis()
   void update_animations(uint32_t now_ms);
@@ -128,11 +137,32 @@ The mouth is the original Stack-chan rectangle: a wide thin line
 (up to 50×60 px). Sizes and positions live in `FaceGeometry`; the eye
 carving logic is the place to tweak or add expressions.
 
+## Effects
+
+A small mark in the top-right corner, ported from the original
+`Effect.h` and extended. With `Effect::Auto` (the default) it follows
+the expression, exactly like the original:
+
+| Expression | Auto mark |
+|------------|-----------|
+| Happy      | pulsing heart |
+| Angry      | anger mark |
+| Sad        | chill lines |
+| Doubt      | sweat drop |
+| Sleepy     | floating "ZZz" (original's bubbles: `Effect::Bubbles`) |
+
+`Effect::Music` shows eighth notes drifting up the corner — the starter
+config switches to it automatically while the bound media_player is
+playing, and back to `auto` when it stops. `Effect::None` hides the
+mark. The original marks pulse with the breath cycle; music notes and
+the "ZZz" drift on their own 3 s loop.
+
 ## Driving from Home Assistant
 
 The starter `esphome.yaml` exposes:
 
 - `select.avatar_expression` — `neutral | happy | sad | angry | sleepy | doubt`
+- `select.avatar_effect` — `auto | none | music | zzz | heart | anger | sweat | chill | bubbles`
 - `switch.avatar_speaking` — toggles the speech (mouth) animation
 - `switch.avatar_listening` — attentive face, mouth stays closed
 
