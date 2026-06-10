@@ -1,14 +1,19 @@
 # esphome-avatar
 
-A header-only Stack-chan-style avatar face for ESPHome. Renders eyes,
-eyebrows, and a mouth on any `display::Display`-compatible panel, with
-six expression presets, automatic blink/breath, and a generic speech
-open/close loop.
+A header-only Stack-chan-style avatar face for ESPHome. Renders eyes
+and a wide Stack-chan mouth on any `display::Display`-compatible panel.
+Expressions are carved into the eye shape (no eyebrows): triangle lids
+for angry/sad, a happy crescent, a droopy half-disc for sleepy.
+Blink timing, saccade gaze jumps, breath, and geometry are ported 1:1
+from the original.
 
-Ported from [stack-chan/m5stack-avatar][upstream] (the geometry and
-expression presets) and retargeted at ESPHome's display API. Lip sync
-is intentionally omitted — `set_speaking(true)` drives a layered-sine
-jabber animation instead.
+Ported from [stack-chan/m5stack-avatar][upstream] and retargeted at
+ESPHome's display API. Real lip sync is intentionally omitted —
+`set_speaking(true)` drives random syllable-like mouth levels instead,
+standing in for the original's audio-level-driven lipSync task. There
+is also a `set_listening(true)` state the original doesn't have: wide
+attentive eyes with a steady, slightly raised gaze — the mouth stays
+firmly closed while listening.
 
 [upstream]: https://github.com/stack-chan/m5stack-avatar
 
@@ -60,15 +65,17 @@ enum class Expression : uint8_t {
 class Avatar {
   // State
   void set_expression(Expression e);
-  void set_speaking(bool s);
+  void set_speaking(bool s);   // animates the mouth (random syllables)
+  void set_listening(bool l);  // attentive eyes, mouth stays closed
 
-  // Per-frame: drive blink/breath/speech from millis()
+  // Per-frame: drive blink/saccades/breath/speech from millis()
   void update_animations(uint32_t now_ms);
 
   // Manual override of any animation axis (skip update_animations)
-  void set_blink_phase(float p);   // 0 closed .. 1 open
-  void set_breath_phase(float p);  // -1..1 sine
-  void set_speak_phase(float p);   // 0..1 mouth-open
+  void set_blink_phase(float p);        // 0 closed .. 1 open
+  void set_breath_phase(float p);       // -1..1 sine
+  void set_speak_phase(float p);        // 0..1 mouth-open
+  void set_gaze(float v, float h);      // -1..1 each, eye offset
 
   // Palette (background, primary, secondary)
   void set_palette(const ColorPalette &p);
@@ -103,29 +110,31 @@ display:
 
 ## Customizing expressions
 
-Each preset is a row in `kExpressions[]` inside `esphome_avatar.h`:
+Expressions are eye shapes, carved out of the filled eye circle with
+background-colored shapes in `Avatar::draw_eye_()` — a direct port of
+the original `Eye::draw()`:
 
-```cpp
-struct ExpressionParams {
-  float    eye_open_ratio;    // 0..1, multiplied with blink
-  int8_t   brow_left_angle;   // degrees, +ve = inner-up
-  int8_t   brow_right_angle;
-  int8_t   brow_offset_y;
-  float    mouth_open_ratio;  // baseline open amount
-  uint16_t mouth_width;
-  bool     mouth_curve_down;  // sad/angry curve when closed
-};
-```
+| Expression | Eye shape |
+|------------|-----------|
+| Neutral    | full circle |
+| Happy      | upper crescent (`^_^`) |
+| Sad        | slanted lid, low corner outward |
+| Angry      | slanted lid, low corner inward |
+| Sleepy     | droopy lower half-disc |
+| Doubt      | half-lidded flat top |
 
-Tweak the values in place — they're the knob you'll want to play with
-most. Add new entries by extending the enum and the array together.
+The mouth is the original Stack-chan rectangle: a wide thin line
+(90×4 px) when closed that narrows and opens vertically while speaking
+(up to 50×60 px). Sizes and positions live in `FaceGeometry`; the eye
+carving logic is the place to tweak or add expressions.
 
 ## Driving from Home Assistant
 
 The starter `esphome.yaml` exposes:
 
 - `select.avatar_expression` — `neutral | happy | sad | angry | sleepy | doubt`
-- `switch.avatar_speaking` — toggles the speech animation
+- `switch.avatar_speaking` — toggles the speech (mouth) animation
+- `switch.avatar_listening` — attentive face, mouth stays closed
 
 Replace the basic `display:` lambda with the richer one shown in
 comments at the bottom of `esphome.yaml` to wire the HA controls into

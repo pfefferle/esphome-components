@@ -50,6 +50,7 @@ display:
     dc_pin: GPIO27
     reset_pin: GPIO33
     rotation: 0
+    invert_colors: true         # required by ili9xxx; correct for M5Stack Core
     update_interval: 33ms       # ~30 fps
     lambda: |-
       static stackchan_avatar::Avatar avatar;
@@ -62,6 +63,7 @@ display:
       else if (opt == "doubt")  avatar.set_expression(E::Doubt);
       else                      avatar.set_expression(E::Neutral);
       avatar.set_speaking(id(speaking_global));
+      avatar.set_listening(id(listening_global));
       avatar.update_animations(millis());
       avatar.draw(it);
 
@@ -97,8 +99,25 @@ switch:
       - lambda: |-
           id(speaking_global) = false;
 
+  # Listening keeps the mouth closed — the avatar perks up instead:
+  # wide attentive eyes, steady slightly-raised gaze, saccades paused.
+  - platform: template
+    name: "Avatar Listening"
+    id: avatar_listening
+    optimistic: true
+    turn_on_action:
+      - lambda: |-
+          id(listening_global) = true;
+    turn_off_action:
+      - lambda: |-
+          id(listening_global) = false;
+
 globals:
   - id: speaking_global
+    type: bool
+    restore_value: no
+    initial_value: "false"
+  - id: listening_global
     type: bool
     restore_value: no
     initial_value: "false"
