@@ -177,11 +177,17 @@ the expression, exactly like the original:
 | Doubt      | sweat drop |
 | Sleepy     | floating "ZZz" (original's bubbles: `Effect::Bubbles`) |
 
-`Effect::Music` shows eighth notes drifting up the corner — the starter
-config switches to it automatically while the bound media_player is
-playing, and back to `auto` when it stops. `Effect::None` hides the
-mark. The original marks pulse with the breath cycle; music notes and
-the "ZZz" drift on their own 3 s loop.
+`Effect::Music` shows eighth notes — the starter config switches to it
+automatically while the bound media_player is playing, and back to
+`auto` when it stops. `Effect::None` hides the mark.
+
+All marks are animated: notes, heart, "ZZz" and bubbles rise straight
+up a fixed column in the corner, growing on the way, on a 3 s loop —
+one mark each, except where plurality is the motif itself (two notes,
+the three Z's, the bubble chain). The chill bars run a staggered
+vertical wave. Two marks stay anchored next to the face, where they
+need to sit to read right: the sweat drop bobs gently with the breath,
+and the anger vein throbs in place at the temple.
 
 ## Driving from Home Assistant
 

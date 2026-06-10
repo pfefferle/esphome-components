@@ -30,8 +30,10 @@
 //   - extra effects the original doesn't have: Music (eighth notes
 //     drifting up the top-right corner) and Zzz ("ZZz" floating above
 //     the head, replacing the bubbles as Sleepy's default mark)
-//   - effect marks sit slightly smaller and higher than the original's
-//     and pulse more gently, so they stay clear of the face
+//   - effect marks are animated instead of static: notes, heart, "ZZz"
+//     and bubbles rise straight up a column in the top-right corner, the
+//     chill bars run a vertical wave; the sweat drop and the anger vein
+//     stay anchored near the face, where they need to be to read right
 //   - idle mode (`set_idle()`): a self-running show neither the original
 //     lib nor the stack-chan firmware has — wanders between calm moods,
 //     dozes off after inactivity (Sleepy + "ZZz" + slow deep breathing),
@@ -379,8 +381,9 @@ class Avatar {
   }
 
   // --- effects: top-right marks, ported from the original Effect.h plus
-  // the Music / Zzz additions. Tucked into the corner (x >= ~260,
-  // y <= ~85) with gentle pulsing so they read as accents, not noise.
+  // the Music / Zzz additions. Notes, heart, "ZZz" and bubbles rise up
+  // a fixed column (x ~284), the chill bars run a wave; the sweat drop
+  // and the anger vein stay anchored near the face.
   void draw_effect_(esphome::display::Display &it) {
     Effect e = effect_;
     if (e == Effect::Auto) {
@@ -393,7 +396,6 @@ class Avatar {
         default:                 e = Effect::None;   break;
       }
     }
-    const float pulse = breath_;  // original marks pulse with breath
     switch (e) {
       case Effect::Music:
         draw_music_(it);
@@ -401,39 +403,59 @@ class Avatar {
       case Effect::Zzz:
         draw_zzz_(it);
         break;
-      case Effect::Heart:
-        draw_heart_(it, 282, 46, 10 + (int)(10 * 0.2f * pulse));
+      case Effect::Heart: {
+        // One heart rising up the corner, growing on the way.
+        const float p = effect_phase_;
+        if (p <= 0.85f) {
+          const int x = 284 + (int)(std::sin(p * 2.0f * (float)M_PI) * 3.0f);
+          const int y = 80 - (int)(p * 52.0f);
+          draw_heart_(it, x, y, 6 + (int)(p * 5.0f));
+        }
         break;
+      }
       case Effect::Anger:
-        draw_anger_(it, 282, 46, 10 + (int)std::fabs(10 * 0.2f * pulse));
+        // Anchored like the sweat drop — the anger vein sits at the
+        // temple and throbs in place; floating away would read wrong.
+        draw_anger_(it, 282, 46,
+                    10 + (int)(std::sin(effect_phase_ * 4.0f * (float)M_PI) * 2.0f));
         break;
       case Effect::Sweat:
-        draw_sweat_(it, 288, 78 - (int)(3 * pulse),
-                    6 - (int)(6 * 0.15f * pulse));
+        // Anchored next to the face — it has to sit close to read as a
+        // sweat drop. Bobs gently with the breath instead of rising.
+        draw_sweat_(it, 288, 78 - (int)(3 * breath_),
+                    6 - (int)(6 * 0.15f * breath_));
         break;
       case Effect::Chill:
-        draw_chill_(it, 272, 0, 26, pulse);
+        draw_chill_(it, 259, 13);
         break;
       case Effect::Bubbles:
-        draw_bubble_(it, 290, 38, 9 + (int)(9 * 0.15f * pulse));
-        draw_bubble_(it, 272, 50, 5 - (int)(5 * 0.15f * pulse));
+        draw_bubbles_(it);
         break;
       default:
         break;
     }
   }
 
-  // Two small eighth notes drifting up the top-right corner, half a
-  // loop apart, each with a quiet gap per loop — kept high and well
-  // clear of the face so the mark stays subtle.
+  // The rising marks share one motion: straight up a fixed column in
+  // the corner with a slight sway. Each effect is a single mark — only
+  // where plurality IS the motif (the Z's of "ZZz", the bubble chain)
+  // are there multiple glyphs, staggered via this loop-progress helper.
+  float rise_phase_(int i, int n) {
+    float p = effect_phase_ + (float)i / (float)n;
+    return p - (int)p;
+  }
+
+  // Eighth notes rising up the corner, half a loop apart — like the
+  // Z's, several notes are part of the motif. They dance vertically:
+  // little hops on the way up, no horizontal swaying.
   void draw_music_(esphome::display::Display &it) {
     for (int i = 0; i < 2; i++) {
-      float p = effect_phase_ + i * 0.5f;
-      p -= (int)p;
-      if (p > 0.8f) continue;  // breathing room between notes
-      const int x = 272 + i * 20 +
-                    (int)(std::sin(p * 2.0f * (float)M_PI) * 2.0f);
-      const int y = 76 - (int)(p * 52.0f);
+      const float p = rise_phase_(i, 2);
+      if (p > 0.85f) continue;  // breathing room between notes
+      const int hop =
+          (int)(std::fabs(std::sin(p * 6.0f * (float)M_PI)) * 5.0f);
+      const int x = 282 + i * 5;  // near-fixed; tiny offset per note
+      const int y = 84 - (int)(p * 50.0f) - hop;
       draw_note_(it, x, y);
     }
   }
@@ -444,14 +466,18 @@ class Avatar {
     it.line(x + 3, y - 12, x + 8, y - 8, palette_.primary);       // flag
   }
 
-  // "ZZz" floating above the head, growing as it drifts away, with a
-  // gentle bob. (Our replacement for the original's sleep bubbles —
+  // "ZZz" rising straight up the corner, growing on the way. (Our
+  // replacement for the original's sleep bubbles as Sleepy's mark —
   // those are still available as Effect::Bubbles.)
   void draw_zzz_(esphome::display::Display &it) {
-    const float w = 2.0f * (float)M_PI;
-    draw_z_(it, 262, 76 + (int)(std::sin(effect_phase_ * w) * 2.0f), 7);
-    draw_z_(it, 276, 52 + (int)(std::sin((effect_phase_ + 0.3f) * w) * 2.0f), 10);
-    draw_z_(it, 292, 26 + (int)(std::sin((effect_phase_ + 0.6f) * w) * 2.0f), 14);
+    for (int i = 0; i < 3; i++) {
+      const float p = rise_phase_(i, 3);
+      const int s = 7 + (int)(p * 7.0f);
+      const int x = 284 - s / 2 +
+                    (int)(std::sin(p * 2.0f * (float)M_PI) * 2.0f);
+      const int y = 84 - (int)(p * 56.0f);
+      draw_z_(it, x, y, s);
+    }
   }
 
   // A 2px-thick "Z" glyph drawn with lines; (x, y) is the top-left, s the size.
@@ -473,6 +499,8 @@ class Avatar {
                    x + r / 2 + a, y + a, palette_.primary);
   }
 
+  // (r stays >= 9 so the background carve that splits the cross into
+  // four corners remains visible.)
   void draw_anger_(esphome::display::Display &it, int x, int y, int r) {
     it.filled_rectangle(x - r / 3, y - r, (r * 2) / 3, r * 2, palette_.primary);
     it.filled_rectangle(x - r, y - r / 3, r * 2, (r * 2) / 3, palette_.primary);
@@ -489,17 +517,27 @@ class Avatar {
                    palette_.primary);
   }
 
-  void draw_chill_(esphome::display::Display &it, int x, int y, int r,
-                   float offset) {
-    const int h = r + (int)std::fabs(r * 0.2f * offset);
-    it.filled_rectangle(x - r / 2, y, 3, h / 2, palette_.primary);
-    it.filled_rectangle(x, y, 3, (h * 3) / 4, palette_.primary);
-    it.filled_rectangle(x + r / 2, y, 3, h, palette_.primary);
+  // Cold shiver: three bars hanging from the top edge, running a
+  // staggered vertical wave instead of the original's static lengths.
+  void draw_chill_(esphome::display::Display &it, int x, int spacing) {
+    for (int i = 0; i < 3; i++) {
+      const float ph = (effect_phase_ + i * 0.33f) * 2.0f * (float)M_PI;
+      const int h = 18 + (int)(std::sin(ph) * 6.0f);
+      it.filled_rectangle(x + i * spacing, 0, 3, h, palette_.primary);
+    }
   }
 
-  void draw_bubble_(esphome::display::Display &it, int x, int y, int r) {
-    it.circle(x, y, r, palette_.primary);
-    it.circle(x - r / 4, y - r / 4, r / 4, palette_.primary);
+  // A chain of two sleep bubbles rising and growing — replaces the
+  // original's static two-ring mark, which read poorly at this
+  // resolution. (Two glyphs like the original; the chain is the motif.)
+  void draw_bubbles_(esphome::display::Display &it) {
+    for (int i = 0; i < 2; i++) {
+      const float p = rise_phase_(i, 2);
+      const int r = 2 + (int)(p * 6.0f);
+      const int x = 286 + (int)(std::sin(p * 2.0f * (float)M_PI) * 3.0f);
+      const int y = 84 - (int)(p * 56.0f);
+      it.circle(x, y, r, palette_.primary);
+    }
   }
 
   // xorshift32 — deterministic, no libc rand() on the render path.
