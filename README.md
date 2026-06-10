@@ -181,13 +181,13 @@ the expression, exactly like the original:
 automatically while the bound media_player is playing, and back to
 `auto` when it stops. `Effect::None` hides the mark.
 
-All marks are animated: notes, heart, "ZZz" and bubbles rise straight
-up a fixed column in the corner, growing on the way, on a 3 s loop —
-one mark each, except where plurality is the motif itself (two notes,
-the three Z's, the bubble chain). The chill bars run a staggered
-vertical wave. Two marks stay anchored next to the face, where they
-need to sit to read right: the sweat drop bobs gently with the breath,
-and the anger vein throbs in place at the temple.
+All marks are animated, with mostly horizontal motion: the two notes
+dance side to side in place (out of phase), the "ZZz" writes itself
+out horizontally letter by letter, heart and bubbles float up with a
+pronounced sideways wobble. Three marks are anchored on the face,
+where they need to sit to read right: the sweat drop bobs next to the
+temple, the anger vein throbs above the right eye, and the gloom lines
+hang over the brow, running a staggered wave.
 
 ## Driving from Home Assistant
 
