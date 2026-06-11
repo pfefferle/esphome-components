@@ -180,6 +180,19 @@ class Avatar {
         mood_until_ms_ = now_ms + 15000 + (uint32_t)(frand_() * 30000.0f);
       }
       if (speaking_ || listening_) last_activity_ms_ = now_ms;
+      // Frame gap: this avatar wasn't drawn for a while (e.g. another
+      // display page owned the screen during a voice interaction).
+      // Whatever happened counts as activity — reset the doze timer
+      // and, if we were dozing, come back via the wake stretch instead
+      // of returning to the screen still asleep. (Must run before the
+      // breath section refreshes last_ms_.)
+      if (last_ms_ != 0 && now_ms - last_ms_ > 1000) {
+        last_activity_ms_ = now_ms;
+        if (idle_state_ == IdleState::Sleeping) {
+          idle_state_ = IdleState::Waking;
+          idle_until_ms_ = now_ms + 3000;
+        }
+      }
       switch (idle_state_) {
         case IdleState::Awake:
           if (idle_sleep_after_ > 0 &&
