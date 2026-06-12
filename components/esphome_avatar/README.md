@@ -20,25 +20,25 @@ face alive on its own.
 
 ## Quick start
 
-1. Copy the starter config [`esphome.yaml`](../../esphome.yaml) (repo
-   root; M5Stack Core, ESP32 + ILI9341 320×240) into your ESPHome config
+1. Copy the starter config [`examples/avatar.yaml`](../../examples/avatar.yaml)
+   (M5Stack Core, ESP32 + ILI9341 320×240) into your ESPHome config
    directory. It exposes HA selects for expression/effect, switches for
    idle/speaking/listening, and an optional media_player binding. The
    avatar is pulled from GitHub automatically — no need to download
    `esphome_avatar.h` yourself.
-2. Create `secrets.yaml` next to `esphome.yaml`:
+2. Create `secrets.yaml` next to it:
 
    ```yaml
    wifi_ssid: "your-ssid"
    wifi_password: "your-password"
-   api_encryption_key: "<32-byte base64, run `esphome config esphome.yaml` to scaffold>"
+   api_encryption_key: "<32-byte base64, run `esphome config avatar.yaml` to scaffold>"
    ota_password: "your-ota-password"
    ```
 
 3. Flash:
 
    ```bash
-   esphome run esphome.yaml
+   esphome run avatar.yaml
    ```
 
 ## Use in an existing config
@@ -69,7 +69,7 @@ package, which is why the header travels as an external component.)
 
 The avatar code is panel-agnostic. To target a different M5Stack /
 display, swap the `esp32:` board, the `spi:` pin block, and the
-`display:` platform in `esphome.yaml`. Geometry defaults assume a
+`display:` platform in `examples/avatar.yaml`. Geometry defaults assume a
 320×240 panel — for smaller displays, supply a scaled `FaceGeometry`.
 
 ## API
@@ -213,7 +213,7 @@ staggered wave.
 
 ## Driving from Home Assistant
 
-The starter `esphome.yaml` exposes:
+The starter `examples/avatar.yaml` exposes:
 
 - `select.avatar_expression` — `neutral | happy | sad | angry | sleepy | doubt`
 - `select.avatar_effect` — `auto | none | music | zzz | heart | anger | sweat | chill | bubbles`
@@ -223,7 +223,7 @@ The starter `esphome.yaml` exposes:
 - `switch.avatar_listening` — attentive face, mouth stays closed
 
 The starter's `display:` lambda already wires all of these in. The
-media_player binding at the bottom of `esphome.yaml` additionally
+media_player binding at the bottom of `avatar.yaml` additionally
 flips speaking + the music effect automatically while a bound HA
 media_player is playing — set its `entity_id`, or remove the block.
 

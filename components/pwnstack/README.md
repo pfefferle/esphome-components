@@ -48,8 +48,8 @@ Add it to your device YAML as an ESPHome `package`:
 ```yaml
 packages:
   pwnagotchi:
-    url: https://github.com/pfefferle/PwnStack
-    file: pwnagotchi-face.yaml
+    url: https://github.com/pfefferle/esphome-components
+    file: components/pwnstack/pwnagotchi-face.yaml
     refresh: 1d
 ```
 
@@ -57,11 +57,11 @@ Or, if you've cloned this repo locally:
 
 ```yaml
 packages:
-  pwnagotchi: !include path/to/PwnStack/pwnagotchi-face.yaml
+  pwnagotchi: !include path/to/esphome-components/components/pwnstack/pwnagotchi-face.yaml
 ```
 
 A complete StackChan example lives in
-[`examples/stackchan.yaml`](examples/stackchan.yaml).
+[`examples/stackchan.yaml`](../../examples/stackchan.yaml).
 
 ## Configuration
 
@@ -95,8 +95,8 @@ substitutions:
 
 packages:
   pwnagotchi:
-    url: https://github.com/pfefferle/PwnStack
-    file: pwnagotchi-face.yaml
+    url: https://github.com/pfefferle/esphome-components
+    file: components/pwnstack/pwnagotchi-face.yaml
     refresh: 1d
 ```
 
