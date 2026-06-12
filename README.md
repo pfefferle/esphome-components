@@ -7,7 +7,6 @@ My collection of [ESPHome](https://esphome.io) external components.
 | Component | Description |
 |-----------|-------------|
 | [`esphome_avatar`](components/esphome_avatar/) | Header-only Stack-chan-style avatar face for `display:` lambdas — expressions, blink/breath/saccade animation, effect marks, idle mode. |
-| [`pwnstack`](components/pwnstack/) | Random Palnagotchi mood faces popping up on an existing `display:` — a YAML package, consumed via `packages:` (see its README). |
 
 ## Usage
 
