@@ -3,7 +3,7 @@
 #
 #   packages:
 #     avatar:
-#       url: https://github.com/pfefferle/esphome-avatar
+#       url: https://github.com/pfefferle/esphome-components
 #       files: [package.yaml]
 #       ref: main
 #
@@ -15,7 +15,7 @@
 # components/stackchan_avatar/esphome_avatar.h into the build.
 
 external_components:
-  - source: github://pfefferle/esphome-avatar@main
+  - source: github://pfefferle/esphome-components@main
     components: [esphome_avatar]
     refresh: 0s
 

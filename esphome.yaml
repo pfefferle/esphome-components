@@ -9,7 +9,7 @@
 
 packages:
   avatar:
-    url: https://github.com/pfefferle/esphome-avatar
+    url: https://github.com/pfefferle/esphome-components
     files: [package.yaml]
     ref: main
     refresh: 1d

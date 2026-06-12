@@ -1,4 +1,4 @@
-# esphome-avatar
+# esphome_avatar
 
 A header-only Stack-chan-style avatar face for ESPHome. Renders eyes
 and a wide Stack-chan mouth on any `display::Display`-compatible panel.
@@ -18,22 +18,13 @@ face alive on its own.
 
 [upstream]: https://github.com/stack-chan/m5stack-avatar
 
-## Files
-
-- `components/esphome_avatar/` — the avatar as an ESPHome external
-  component: `esphome_avatar.h` (the header-only library) plus the
-  component glue that compiles it into the build.
-- `package.yaml` — ESPHome package partial that wires the component up.
-  Consumers reference this from GitHub; no local copy needed.
-- `esphome.yaml` — starter config for an M5Stack Core (ESP32 + ILI9341
-  320×240). Pulls the avatar from GitHub via `packages:`. Exposes HA
-  selects for expression/effect, switches for idle/speaking/listening,
-  and an optional media_player binding.
-
 ## Quick start
 
-1. Copy `esphome.yaml` into your ESPHome config directory. The avatar
-   header is pulled from GitHub automatically — no need to download
+1. Copy the starter config [`esphome.yaml`](../../esphome.yaml) (repo
+   root; M5Stack Core, ESP32 + ILI9341 320×240) into your ESPHome config
+   directory. It exposes HA selects for expression/effect, switches for
+   idle/speaking/listening, and an optional media_player binding. The
+   avatar is pulled from GitHub automatically — no need to download
    `esphome_avatar.h` yourself.
 2. Create `secrets.yaml` next to `esphome.yaml`:
 
@@ -55,7 +46,7 @@ face alive on its own.
 ```yaml
 packages:
   avatar:
-    url: https://github.com/pfefferle/esphome-avatar
+    url: https://github.com/pfefferle/esphome-components
     files: [package.yaml]
     ref: main
 ```
@@ -64,7 +55,7 @@ or wire the external component up directly:
 
 ```yaml
 external_components:
-  - source: github://pfefferle/esphome-avatar@main
+  - source: github://pfefferle/esphome-components@main
     components: [esphome_avatar]
 
 esphome_avatar:
