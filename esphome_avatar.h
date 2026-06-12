@@ -176,6 +176,7 @@ class Avatar {
         // always start the show neutral; the mood wander takes over
         // after the first hold
         idle_fresh_ = false;
+        idle_mood_ = Expression::Neutral;
         expression_ = Expression::Neutral;
         mood_until_ms_ = now_ms + 15000 + (uint32_t)(frand_() * 30000.0f);
       }
@@ -202,11 +203,15 @@ class Avatar {
           } else if ((int32_t)(now_ms - mood_until_ms_) >= 0) {
             // calm mood wander, held for 15-45 s each
             const float roll = frand_();
-            expression_ = roll < 0.5f   ? Expression::Neutral
-                          : roll < 0.8f ? Expression::Happy
-                                        : Expression::Doubt;
+            idle_mood_ = roll < 0.5f   ? Expression::Neutral
+                         : roll < 0.8f ? Expression::Happy
+                                       : Expression::Doubt;
             mood_until_ms_ = now_ms + 15000 + (uint32_t)(frand_() * 30000.0f);
           }
+          // Idle owns the face: re-assert the wandered mood every frame so
+          // per-frame set_expression() calls from the consumer can't wipe
+          // it between mood changes.
+          expression_ = idle_mood_;
           break;
         case IdleState::Sleeping:
           expression_ = Expression::Sleepy;
@@ -221,6 +226,7 @@ class Avatar {
           expression_ = Expression::Happy;  // bright-eyed stretch
           if ((int32_t)(now_ms - idle_until_ms_) >= 0) {
             idle_state_ = IdleState::Awake;
+            idle_mood_ = Expression::Neutral;
             expression_ = Expression::Neutral;
             mood_until_ms_ = now_ms + 15000 + (uint32_t)(frand_() * 30000.0f);
           }
@@ -584,6 +590,7 @@ class Avatar {
   bool         idle_{false};
   bool         idle_fresh_{true};
   IdleState    idle_state_{IdleState::Awake};
+  Expression   idle_mood_{Expression::Neutral};  // current wander mood
   uint32_t     idle_sleep_after_{300000};    // 5 min
   uint32_t     idle_sleep_duration_{120000}; // 2 min
   uint32_t     last_activity_ms_{0};
