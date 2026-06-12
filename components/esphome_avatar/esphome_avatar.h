@@ -44,10 +44,10 @@
 // Default face geometry assumes a 320x240 panel (M5Stack Core / CoreS3).
 // For smaller displays, scale via FaceGeometry or wrap with your own scale.
 //
-// Drop this into your ESPHome config dir and add to esphome.yaml:
-//   esphome:
-//     includes:
-//       - esphome_avatar.h
+// Ships as the `esphome_avatar` external component — consume it via the
+// repo's package.yaml (see README) or wire up `external_components:`
+// yourself. Alternatively, copy this file into your config dir and add it
+// to `esphome: includes:`.
 //
 // Then in a `display:` lambda, instantiate a static Avatar and call draw(it).
 

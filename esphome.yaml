@@ -2,9 +2,10 @@
 # CoreS3 / Core2 / other boards: swap the board, SPI pins, and display
 # platform; the avatar code itself is panel-agnostic.
 #
-# The avatar header is pulled from GitHub via the `packages` block below —
-# no local copy of esphome_avatar.h is required. ESPHome clones the repo
-# into its build cache and resolves the include automatically.
+# The avatar is pulled from GitHub via the `packages` block below — no
+# local copy of esphome_avatar.h is required: package.yaml wires up the
+# `esphome_avatar` external component, which ESPHome fetches from this
+# repo and compiles into the build.
 
 packages:
   avatar:

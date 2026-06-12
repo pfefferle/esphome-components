@@ -8,7 +8,15 @@
 #       ref: main
 #
 # After this, `stackchan_avatar::Avatar` is available in display lambdas.
+#
+# `esphome: includes:` cannot ship C++ from a remote package (the path
+# resolves against the consumer's config dir), so the header is delivered
+# as an external component instead: ESPHome clones the repo and compiles
+# components/stackchan_avatar/esphome_avatar.h into the build.
 
-esphome:
-  includes:
-    - esphome_avatar.h
+external_components:
+  - source: github://pfefferle/esphome-avatar@main
+    components: [esphome_avatar]
+    refresh: 0s
+
+esphome_avatar:

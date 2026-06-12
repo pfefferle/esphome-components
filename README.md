@@ -20,8 +20,10 @@ face alive on its own.
 
 ## Files
 
-- `esphome_avatar.h` — the avatar library (header-only).
-- `package.yaml` — ESPHome package partial that ships the header.
+- `components/esphome_avatar/` — the avatar as an ESPHome external
+  component: `esphome_avatar.h` (the header-only library) plus the
+  component glue that compiles it into the build.
+- `package.yaml` — ESPHome package partial that wires the component up.
   Consumers reference this from GitHub; no local copy needed.
 - `esphome.yaml` — starter config for an M5Stack Core (ESP32 + ILI9341
   320×240). Pulls the avatar from GitHub via `packages:`. Exposes HA
@@ -47,6 +49,30 @@ face alive on its own.
    ```bash
    esphome run esphome.yaml
    ```
+
+## Use in an existing config
+
+```yaml
+packages:
+  avatar:
+    url: https://github.com/pfefferle/esphome-avatar
+    files: [package.yaml]
+    ref: main
+```
+
+or wire the external component up directly:
+
+```yaml
+external_components:
+  - source: github://pfefferle/esphome-avatar@main
+    components: [esphome_avatar]
+
+esphome_avatar:
+```
+
+Either way, `stackchan_avatar::Avatar` is available in `display:`
+lambdas afterwards. (`esphome: includes:` can't ship C++ from a remote
+package, which is why the header travels as an external component.)
 
 ## Other boards
 
