@@ -1,4 +1,4 @@
-# roboeyes
+# esphome_roboeyes
 
 [FluxGarage RoboEyes](https://github.com/FluxGarage/RoboEyes) for ESPHome:
 smoothly animated robot eyes (rounded rectangles) with moods, blinking,
@@ -16,16 +16,15 @@ This is different from the rest of this repository (MIT): firmware that
 includes this component is a combined work under the GPL.
 
 RoboEyes: Copyright (C) 2024-2025 Dennis Hoelscher, www.fluxgarage.com
-ESPHome adapter: Copyright (C) 2026 Matthias Pfefferle
 
 ## Usage
 
 ```yaml
 external_components:
   - source: github://pfefferle/esphome-components@main
-    components: [roboeyes]
+    components: [esphome_roboeyes]
 
-roboeyes:
+esphome_roboeyes:
 
 display:
   - platform: ...

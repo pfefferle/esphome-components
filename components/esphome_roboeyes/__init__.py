@@ -2,7 +2,7 @@
 
 GPL-3.0-or-later, see LICENSE in this directory.
 
-The component has no configuration of its own. Adding `roboeyes:` to a
+The component has no configuration of its own. Adding `esphome_roboeyes:` to a
 config copies the headers into the build and #includes the adapter in
 main.cpp, so display lambdas can use roboeyes::Face.
 """
@@ -20,6 +20,6 @@ async def to_code(config):
     # Display lambdas are compiled into main.cpp; make RoboEyes visible there
     cg.add_global(
         cg.RawStatement(
-            '#include "esphome/components/roboeyes/esphome_roboeyes.h"'
+            '#include "esphome/components/esphome_roboeyes/esphome_roboeyes.h"'
         )
     )
