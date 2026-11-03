@@ -1,0 +1,111 @@
+# Stack-chan avatar on an M5Stack AtomS3 (ESP32-S3, GC9107 128x128).
+#
+# Same face as examples/avatar.yaml, scaled onto the small square screen
+# with set_fit_to_display(true). Expression, effect, idle, speaking and
+# listening are exposed to Home Assistant.
+
+esphome:
+  name: avatar-atoms3
+  friendly_name: Avatar AtomS3
+
+esp32:
+  board: m5stack-atoms3
+  framework:
+    type: esp-idf
+
+logger:
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+packages:
+  avatar:
+    url: https://github.com/pfefferle/esphome-components
+    files: [package.yaml]
+    ref: main
+    refresh: 1d
+
+# --- display ---------------------------------------------------------------
+
+spi:
+  clk_pin: GPIO17
+  mosi_pin: GPIO21
+
+output:
+  - platform: ledc
+    pin: GPIO16
+    id: backlight_pwm
+
+light:
+  - platform: monochromatic
+    output: backlight_pwm
+    id: lcd_backlight
+    name: Display Backlight
+    restore_mode: ALWAYS_ON
+
+display:
+  - platform: mipi_spi
+    model: GC9107
+    cs_pin: GPIO15
+    dc_pin: GPIO33
+    reset_pin: GPIO34
+    invert_colors: true
+    data_rate: 40MHz
+    rotation: 0
+    update_interval: 66ms
+    lambda: |-
+      static stackchan_avatar::Avatar avatar;
+      using E = stackchan_avatar::Expression;
+      using FX = stackchan_avatar::Effect;
+      avatar.set_fit_to_display(true);   // scale the 320x240 face onto 128x128
+      avatar.set_expression((E) id(avatar_expression).active_index().value_or(0));
+      avatar.set_effect((FX) id(avatar_effect).active_index().value_or(0));
+      avatar.set_idle(id(avatar_idle).state);
+      avatar.set_speaking(id(avatar_speaking).state);
+      avatar.set_listening(id(avatar_listening).state);
+      avatar.update_animations(millis());
+      avatar.draw(it);
+
+# --- Home Assistant controls -----------------------------------------------
+
+select:
+  # Ignored while "Idle" is on: idle mode picks the expression itself.
+  - platform: template
+    name: Expression
+    id: avatar_expression
+    optimistic: true
+    options: [neutral, happy, sad, angry, sleepy, doubt]   # Expression enum order
+    initial_option: neutral
+
+  # "auto" follows the expression. If the marks are too small on this
+  # screen, pick "none".
+  - platform: template
+    name: Effect
+    id: avatar_effect
+    optimistic: true
+    options: [auto, none, music, zzz, heart, anger, sweat, chill, bubbles]   # Effect enum order
+    initial_option: auto
+
+switch:
+  - platform: template
+    name: Idle   # wander moods, doze off, wake up on its own
+    id: avatar_idle
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+  - platform: template
+    name: Speaking
+    id: avatar_speaking
+    optimistic: true
+  - platform: template
+    name: Listening
+    id: avatar_listening
+    optimistic: true

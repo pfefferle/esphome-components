@@ -56,6 +56,9 @@ the eyes' animation targets, so calling them every frame cancels every
 blink. `setMood()`, `setAutoblinker()` and `setIdleMode()` only store
 values and can be called every frame.
 
+[`examples/roboeyes-atoms3.yaml`](../../examples/roboeyes-atoms3.yaml)
+exposes every option to Home Assistant.
+
 Differences to the Arduino library:
 
 - The display's `update_interval` is the frame rate. RoboEyes'

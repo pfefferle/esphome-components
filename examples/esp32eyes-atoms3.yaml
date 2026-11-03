@@ -1,0 +1,163 @@
+# esp32-eyes (Cozmo-style eyes) on an M5Stack AtomS3 (ESP32-S3, GC9107 128x128).
+#
+# Every esp32-eyes option is exposed to Home Assistant: all 18 emotions,
+# random emotion changes, random looking around, auto blink, and buttons
+# to blink and to look in each direction.
+#
+# esphome_esp32eyes is AGPL-3.0-or-later (it includes esp32-eyes), so
+# firmware built from this config is AGPL-3.0 as well. The AGPL also covers
+# use over a network: whoever uses the device over the network (e.g. through
+# Home Assistant) has to be able to get the source.
+
+esphome:
+  name: esp32eyes-atoms3
+  friendly_name: esp32-eyes AtomS3
+
+esp32:
+  board: m5stack-atoms3
+  framework:
+    type: esp-idf
+
+logger:
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+external_components:
+  - source: github://pfefferle/esphome-components@main
+    components: [esphome_esp32eyes]
+    refresh: 1d
+
+esphome_esp32eyes:
+
+# --- display ---------------------------------------------------------------
+
+spi:
+  clk_pin: GPIO17
+  mosi_pin: GPIO21
+
+output:
+  - platform: ledc
+    pin: GPIO16
+    id: backlight_pwm
+
+light:
+  - platform: monochromatic
+    output: backlight_pwm
+    id: lcd_backlight
+    name: Display Backlight
+    restore_mode: ALWAYS_ON
+
+# The eyes live in a global so buttons and selects can reach them too.
+globals:
+  - id: cozmo
+    type: esp32eyes::Eyes *
+    initial_value: new esp32eyes::Eyes()
+
+display:
+  - platform: mipi_spi
+    model: GC9107
+    cs_pin: GPIO15
+    dc_pin: GPIO33
+    reset_pin: GPIO34
+    invert_colors: true
+    data_rate: 40MHz
+    rotation: 0
+    update_interval: 33ms   # the frame rate of the eyes
+    lambda: |-
+      if (id(cozmo)->begin(it, 48)) {   // true once, on the first frame
+        auto &face = id(cozmo)->face();
+        face.Blink.Timer.SetIntervalMillis(4000);
+        // Colors: any ESPHome color, e.g. cyan eyes on black
+        // id(cozmo)->set_colors(Color(0, 0, 0), Color(0, 255, 255));
+      }
+      auto &face = id(cozmo)->face();
+      face.RandomBehavior = id(eyes_random_emotion).state;
+      face.RandomLook = id(eyes_random_look).state;
+      face.RandomBlink = id(eyes_auto_blink).state;
+      id(cozmo)->draw(it);
+
+# --- Home Assistant controls -----------------------------------------------
+
+select:
+  # Turn "Random Emotion" off first, otherwise it picks a new one again.
+  - platform: template
+    name: Emotion
+    id: eyes_emotion
+    optimistic: true
+    # same order as the eEmotions enum
+    options:
+      - normal
+      - angry
+      - glee
+      - happy
+      - sad
+      - worried
+      - focused
+      - annoyed
+      - surprised
+      - skeptic
+      - frustrated
+      - unimpressed
+      - sleepy
+      - suspicious
+      - squint
+      - furious
+      - scared
+      - awe
+    initial_option: normal
+    on_value:
+      - lambda: |-
+          if (id(cozmo)->ready()) id(cozmo)->face().Behavior.GoToEmotion((eEmotions) i);
+
+switch:
+  - platform: template
+    name: Random Emotion   # switch between emotions on its own
+    id: eyes_random_emotion
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+  - platform: template
+    name: Random Look   # look around on its own
+    id: eyes_random_look
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+  - platform: template
+    name: Auto Blink
+    id: eyes_auto_blink
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+button:
+  - platform: template
+    name: Blink
+    on_press:
+      - lambda: if (id(cozmo)->ready()) id(cozmo)->face().DoBlink();
+  - platform: template
+    name: Look Front
+    on_press:
+      - lambda: if (id(cozmo)->ready()) id(cozmo)->face().LookFront();
+  - platform: template
+    name: Look Left
+    on_press:
+      - lambda: if (id(cozmo)->ready()) id(cozmo)->face().LookLeft();
+  - platform: template
+    name: Look Right
+    on_press:
+      - lambda: if (id(cozmo)->ready()) id(cozmo)->face().LookRight();
+  - platform: template
+    name: Look Up
+    on_press:
+      - lambda: if (id(cozmo)->ready()) id(cozmo)->face().LookTop();
+  - platform: template
+    name: Look Down
+    on_press:
+      - lambda: if (id(cozmo)->ready()) id(cozmo)->face().LookBottom();
