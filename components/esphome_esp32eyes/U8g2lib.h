@@ -20,6 +20,8 @@
 
 #include "esphome/core/color.h"
 #include "esphome/components/display/display.h"
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 #define U8G2_R0 0
@@ -27,6 +29,9 @@
 
 // esp32-eyes defines one global `u8g2` of this type (Face.cpp) and only
 // uses the calls below. Color 0 is the background, 1 the eyes.
+//
+// set_scale() scales everything around the screen center. esp32-eyes
+// draws its eyes at a fixed 40x40px, so this is how their size changes.
 class U8G2_SSD1306_128X64_NONAME_F_HW_I2C {
  public:
   U8G2_SSD1306_128X64_NONAME_F_HW_I2C(int rotation = U8G2_R0, int reset = U8X8_PIN_NONE,
@@ -38,6 +43,7 @@ class U8G2_SSD1306_128X64_NONAME_F_HW_I2C {
     background_ = background;
     main_ = main;
   }
+  void set_scale(float scale) { scale_ = scale > 0.0f ? scale : 1.0f; }
 
   // --- the u8g2 calls esp32-eyes makes
   void setI2CAddress(uint8_t) {}
@@ -47,21 +53,37 @@ class U8G2_SSD1306_128X64_NONAME_F_HW_I2C {
   }
   void sendBuffer() {}  // ESPHome sends the buffer itself after the lambda
   void setDrawColor(uint8_t color) { color_ = color; }
-  void drawHLine(int x, int y, int w) {
-    if (it_ != nullptr && w > 0) it_->horizontal_line(x, y, w, current_());
-  }
+  void drawHLine(int x, int y, int w) { drawBox(x, y, w, 1); }
   void drawBox(int x, int y, int w, int h) {
-    if (it_ != nullptr && w > 0 && h > 0) it_->filled_rectangle(x, y, w, h, current_());
+    if (it_ == nullptr || w <= 0 || h <= 0) return;
+    const int x0 = tx_(x), y0 = ty_(y);
+    const int sw = std::max(1, tx_(x + w) - x0), sh = std::max(1, ty_(y + h) - y0);
+    if (sh == 1) {
+      it_->horizontal_line(x0, y0, sw, current_());
+    } else {
+      it_->filled_rectangle(x0, y0, sw, sh, current_());
+    }
   }
   void drawTriangle(int x0, int y0, int x1, int y1, int x2, int y2) {
-    if (it_ != nullptr) it_->filled_triangle(x0, y0, x1, y1, x2, y2, current_());
+    if (it_ != nullptr)
+      it_->filled_triangle(tx_(x0), ty_(y0), tx_(x1), ty_(y1), tx_(x2), ty_(y2), current_());
   }
 
  protected:
   esphome::Color current_() const { return color_ ? main_ : background_; }
+  // Scale around the screen center; identity at scale 1.
+  int tx_(int x) const {
+    const float c = it_->get_width() / 2.0f;
+    return (int) std::lround(c + (x - c) * scale_);
+  }
+  int ty_(int y) const {
+    const float c = it_->get_height() / 2.0f;
+    return (int) std::lround(c + (y - c) * scale_);
+  }
 
   esphome::display::Display *it_{nullptr};
   esphome::Color background_{0, 0, 0};
   esphome::Color main_{255, 255, 255};
   uint8_t color_{1};
+  float scale_{1.0f};
 };

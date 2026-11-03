@@ -1,8 +1,9 @@
 # esp32-eyes (Cozmo-style eyes) on an M5Stack AtomS3 (ESP32-S3, GC9107 128x128).
 #
 # Every esp32-eyes option is exposed to Home Assistant: all 18 emotions,
-# random emotion changes, random looking around, auto blink, and buttons
-# to blink and to look in each direction.
+# random emotion changes (and how often), random looking around, auto
+# blink, eye color,
+# eye size, and buttons to blink and to look in each direction.
 #
 # esphome_esp32eyes is AGPL-3.0-or-later (it includes esp32-eyes), so
 # firmware built from this config is AGPL-3.0 as well. The AGPL also covers
@@ -49,6 +50,23 @@ output:
   - platform: ledc
     pin: GPIO16
     id: backlight_pwm
+  # "Eye Color" in Home Assistant: an RGB light (below) that only feeds
+  # the eye_red/green/blue globals, so HA shows its color picker.
+  - platform: template
+    id: eye_red_out
+    type: float
+    write_action:
+      - lambda: id(eye_red) = state;
+  - platform: template
+    id: eye_green_out
+    type: float
+    write_action:
+      - lambda: id(eye_green) = state;
+  - platform: template
+    id: eye_blue_out
+    type: float
+    write_action:
+      - lambda: id(eye_blue) = state;
 
 light:
   - platform: monochromatic
@@ -56,12 +74,30 @@ light:
     id: lcd_backlight
     name: Display Backlight
     restore_mode: ALWAYS_ON
+  - platform: rgb
+    name: Eye Color
+    red: eye_red_out
+    green: eye_green_out
+    blue: eye_blue_out
+    gamma_correct: 1.0   # show the picked color as it is
+    default_transition_length: 0s
+    restore_mode: RESTORE_DEFAULT_ON
 
 # The eyes live in a global so buttons and selects can reach them too.
 globals:
   - id: cozmo
     type: esp32eyes::Eyes *
     initial_value: new esp32eyes::Eyes()
+  # Eye color, written by the "Eye Color" light above (0..1 per channel)
+  - id: eye_red
+    type: float
+    initial_value: "1.0"
+  - id: eye_green
+    type: float
+    initial_value: "1.0"
+  - id: eye_blue
+    type: float
+    initial_value: "1.0"
 
 display:
   - platform: mipi_spi
@@ -77,11 +113,18 @@ display:
       if (id(cozmo)->begin(it, 48)) {   // true once, on the first frame
         auto &face = id(cozmo)->face();
         face.Blink.Timer.SetIntervalMillis(4000);
-        // Colors: any ESPHome color, e.g. cyan eyes on black
-        // id(cozmo)->set_colors(Color(0, 0, 0), Color(0, 255, 255));
+        // Random Emotion picks by weight, and upstream starts with all
+        // weights at 0 (= always "normal"). Use all 18, mostly calm.
+        for (int e = 0; e < eEmotions::EMOTIONS_COUNT; e++) {
+          face.Behavior.SetEmotion((eEmotions) e, e == eEmotions::Normal ? 3.0f : 1.0f);
+        }
       }
+      id(cozmo)->set_colors(Color(0, 0, 0),
+                            Color(id(eye_red) * 255, id(eye_green) * 255, id(eye_blue) * 255));
+      id(cozmo)->set_scale(id(eye_size).state / 100.0f);   // 100% = upstream's 40px eyes
       auto &face = id(cozmo)->face();
       face.RandomBehavior = id(eyes_random_emotion).state;
+      face.Behavior.Timer.SetIntervalMillis(id(emotion_interval).state * 1000);
       face.RandomLook = id(eyes_random_look).state;
       face.RandomBlink = id(eyes_auto_blink).state;
       id(cozmo)->draw(it);
@@ -119,9 +162,36 @@ select:
       - lambda: |-
           if (id(cozmo)->ready()) id(cozmo)->face().Behavior.GoToEmotion((eEmotions) i);
 
+number:
+  # How often Random Emotion picks a new emotion
+  - platform: template
+    name: Emotion Interval
+    id: emotion_interval
+    optimistic: true
+    restore_value: true
+    min_value: 2
+    max_value: 120
+    step: 1
+    initial_value: 10
+    unit_of_measurement: s
+    mode: slider
+
+  # Large sizes can touch the screen edge when the eyes look sideways.
+  - platform: template
+    name: Eye Size
+    id: eye_size
+    optimistic: true
+    restore_value: true
+    min_value: 50
+    max_value: 120
+    step: 5
+    initial_value: 100
+    unit_of_measurement: "%"
+    mode: slider
+
 switch:
   - platform: template
-    name: Random Emotion   # switch between emotions on its own
+    name: Random Emotion   # a new random emotion every "Emotion Interval"
     id: eyes_random_emotion
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON

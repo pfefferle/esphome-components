@@ -62,6 +62,8 @@ class Eyes {
   void set_colors(esphome::Color background, esphome::Color main) {
     u8g2.set_colors(background, main);
   }
+  // Eye size: 1.0 is upstream's 40x40px eyes, scaled around the screen center.
+  void set_scale(float scale) { u8g2.set_scale(scale); }
 
   // Once per display update: runs behavior, look and blink, then draws.
   void draw(esphome::display::Display &it) {

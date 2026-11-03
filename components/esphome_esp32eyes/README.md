@@ -64,8 +64,17 @@ display:
 
 The face is created on the first frame, because upstream needs the screen
 size for that. Outside the display lambda (buttons, selects), check
-`eyes.ready()` before using `eyes.face()`. `eyes.set_colors(background,
-main)` sets the colors.
+`eyes.ready()` before using `eyes.face()`.
+
+Two settings come from the ESPHome side, both can change every frame:
+
+- `eyes.set_colors(background, main)`: any ESPHome colors.
+- `eyes.set_scale(1.2)`: eye size. Upstream draws its eyes at a fixed
+  40×40px; the scale applies to the whole drawing around the screen
+  center, so 1.0 is upstream's size. The `eyeSize` passed to `begin()`
+  only sets the distance between the eyes. Large scales can touch the
+  screen edge when the eyes look sideways.
 
 [`examples/esp32eyes-atoms3.yaml`](../../examples/esp32eyes-atoms3.yaml)
-exposes all of it to Home Assistant.
+exposes all of it to Home Assistant, including an RGB light for the eye
+color and a slider for the eye size.
