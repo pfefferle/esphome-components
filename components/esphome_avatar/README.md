@@ -70,7 +70,9 @@ package, which is why the header travels as an external component.)
 The avatar code is panel-agnostic. To target a different M5Stack /
 display, swap the `esp32:` board, the `spi:` pin block, and the
 `display:` platform in `examples/avatar.yaml`. Geometry defaults assume a
-320×240 panel — for smaller displays, supply a scaled `FaceGeometry`.
+320×240 panel. For other sizes, turn on `set_fit_to_display(true)`: the
+whole face, effect marks included, is scaled evenly and centered on the
+panel (see [Cat face and small screens](#cat-face-and-small-screens)).
 
 ## API
 
@@ -120,7 +122,13 @@ class Avatar {
   void set_secondary_rgb(uint32_t rgb);
 
   // Geometry (positions, sizes — see FaceGeometry struct)
-  void set_geometry(const FaceGeometry &g);
+  void set_geometry(const FaceGeometry &g);  // FaceGeometry::cat() for the cat
+
+  // Optional parts: ears, heart nose, "w" mouth, whiskers
+  void set_style(const FaceStyle &s);        // FaceStyle::cat(whiskers)
+
+  // Scale the face evenly to the panel (off by default)
+  void set_fit_to_display(bool f);
 
   // Render — call once per display update
   void draw(esphome::display::Display &it);
@@ -160,6 +168,43 @@ The mouth is the original Stack-chan rectangle: a wide thin line
 (90×4 px) when closed that narrows and opens vertically while speaking
 (up to 50×60 px). Sizes and positions live in `FaceGeometry`; the eye
 carving logic is the place to tweak or add expressions.
+
+## Cat face and small screens
+
+The same avatar can be a cat, e.g. as a sidekick on an M5Stack AtomS3
+(128×128). Everything else (blink, breath, gaze, expressions, effects,
+idle mode) stays the same.
+
+```yaml
+lambda: |-
+  static stackchan_avatar::Avatar avatar;
+  avatar.set_geometry(stackchan_avatar::FaceGeometry::cat());
+  avatar.set_style(stackchan_avatar::FaceStyle::cat(/*whiskers=*/false));
+  avatar.set_fit_to_display(true);
+  avatar.update_animations(millis());
+  avatar.draw(it);
+```
+
+- **`FaceGeometry::cat()`** is the cat layout, designed for a 128×128
+  canvas: bigger round eyes closer together, effect marks between the
+  ears.
+- **`FaceStyle`** switches each part on its own, for any face:
+  `ears`, `nose` (heart), `whiskers`, and `mouth` (`MouthShape::Bar`
+  or `MouthShape::Cat`, a "w" with a round opening while speaking).
+  So Stack-chan can wear just the cat nose:
+  `FaceStyle s; s.nose = true; avatar.set_style(s);`
+- **Ears follow the mood**: upright (neutral), perked up (happy),
+  drooping (sad), flattened back (angry), half lowered (sleepy), one
+  tilted (doubt), raised high while listening.
+- **`set_fit_to_display(true)`** scales the face evenly to the panel,
+  centered, effects included. Works for any face, so the original
+  Stack-chan face also runs on the AtomS3 (smaller, same look). If the
+  effect marks get too small, hide them with `Effect::None`.
+
+Fitting is off by default, so existing configs draw exactly what they
+drew before. On Stack-chan's own 320×240 layout the effect marks sit in
+the top-right corner, where the right ear goes; with ears on, they
+overlap.
 
 ## Idle mode
 

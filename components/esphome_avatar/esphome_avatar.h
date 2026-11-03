@@ -42,7 +42,10 @@
 //     and wakes up on its own or when it has to speak or listen
 //
 // Default face geometry assumes a 320x240 panel (M5Stack Core / CoreS3).
-// For smaller displays, scale via FaceGeometry or wrap with your own scale.
+// For other displays, `set_fit_to_display(true)` scales the whole face,
+// effect marks included, evenly onto the panel. `FaceStyle` adds optional
+// cat parts (ears that follow the mood, heart nose, "w" mouth, whiskers);
+// `FaceGeometry::cat()` + `FaceStyle::cat()` is the cat face.
 //
 // Ships as the `esphome_avatar` external component — consume it via the
 // repo's package.yaml (see README) or wire up `external_components:`
@@ -84,6 +87,30 @@ enum class Effect : uint8_t {
   Bubbles = 8,  // the original's Sleepy mark
 };
 
+enum class MouthShape : uint8_t {
+  Bar = 0,  // the original wide rectangle
+  Cat = 1,  // "w" line; a round opening drops below it while speaking
+};
+
+// Optional face parts. Every part can be switched on for any face, e.g.
+// Stack-chan with only the cat nose. The default is the original face.
+struct FaceStyle {
+  bool       ears     = false;  // triangle ears that follow the mood
+  bool       nose     = false;  // heart-shaped cat nose
+  bool       whiskers = false;  // two whiskers per side
+  MouthShape mouth    = MouthShape::Bar;
+
+  // Cat preset: ears, nose and "w" mouth; whiskers optional.
+  static FaceStyle cat(bool whiskers = false) {
+    FaceStyle s;
+    s.ears = true;
+    s.nose = true;
+    s.whiskers = whiskers;
+    s.mouth = MouthShape::Cat;
+    return s;
+  }
+};
+
 // Three-slot palette mirroring the original m5stack-avatar ColorPalette:
 //   background — fills the screen each frame (also used to carve eye lids)
 //   primary    — eyes and mouth fill
@@ -113,6 +140,56 @@ struct FaceGeometry {
   uint16_t mouth_max_w = 90;
   uint16_t mouth_min_h = 4;
   uint16_t mouth_max_h = 60;
+
+  // Logical canvas the coordinates above are designed for. Only used when
+  // fitting to the display is on (Avatar::set_fit_to_display()).
+  uint16_t canvas_w = 320;
+  uint16_t canvas_h = 240;
+
+  // Optional parts (FaceStyle). Right-side parts mirror the left ones
+  // around the middle between the eyes. Sizes are multipliers of the
+  // cat face's 128x128 design.
+  float ear_x = 72, ear_y = 58, ear_size = 1.8f;          // left ear pivot
+  float nose_x = 160, nose_y = 118, nose_size = 2.0f;     // heart top center
+  float whisker_x = 100, whisker_y = 132, whisker_size = 2.0f;  // left inner end
+  float cat_mouth_size = 2.5f;  // "w" around mouth_x / mouth_y
+
+  // Effect marks are designed for 320x240; this maps them into the face
+  // (x' = effect_x + x * effect_scale). Identity for Stack-chan.
+  float effect_x = 0, effect_y = 0, effect_scale = 1.0f;
+
+  // Cat face layout on a 128x128 canvas.
+  static FaceGeometry cat() {
+    FaceGeometry g;
+    g.canvas_w = 128;
+    g.canvas_h = 128;
+    g.left_eye_x = 40;
+    g.left_eye_y = 62;
+    g.right_eye_x = 88;
+    g.right_eye_y = 62;
+    g.eye_radius = 9;
+    g.mouth_x = 64;
+    g.mouth_y = 92;
+    g.mouth_min_w = 20;
+    g.mouth_max_w = 36;
+    g.mouth_min_h = 3;
+    g.mouth_max_h = 24;
+    g.ear_x = 29;
+    g.ear_y = 34;
+    g.ear_size = 1.0f;
+    g.nose_x = 64;
+    g.nose_y = 81.5f;
+    g.nose_size = 1.0f;
+    g.whisker_x = 34;
+    g.whisker_y = 86;
+    g.whisker_size = 1.0f;
+    g.cat_mouth_size = 1.0f;
+    // Marks go between the ears, above the eyes.
+    g.effect_x = -64;
+    g.effect_y = 1;
+    g.effect_scale = 0.5f;
+    return g;
+  }
 };
 
 class Avatar {
@@ -160,6 +237,14 @@ class Avatar {
   void set_secondary_rgb(uint32_t rgb)  { palette_.secondary  = unpack_(rgb); }
 
   void set_geometry(const FaceGeometry &g) { geom_ = g; }
+
+  // Optional face parts; see FaceStyle. Default: the original face.
+  void set_style(const FaceStyle &s) { style_ = s; }
+
+  // Scale the face evenly to fit the display (aspect ratio kept, centered),
+  // including the effect marks. Off by default: coordinates are then
+  // display pixels, exactly as before.
+  void set_fit_to_display(bool f) { fit_ = f; }
 
   // Drive blink, saccades, breath, and speech from a single millis()
   // value. Call once per frame before draw(). Timings ported from the
@@ -300,6 +385,19 @@ class Avatar {
     const int gy = (int)(gaze_v_ * 3.0f);
     const bool open = blink_ >= 0.5f;
 
+    // Logical canvas -> display. Identity (no rounding changes) unless
+    // fitting is on.
+    float s = 1.0f, ox = 0.0f, oy = 0.0f;
+    if (fit_ && geom_.canvas_w > 0 && geom_.canvas_h > 0) {
+      s = std::min((float)it.get_width() / geom_.canvas_w,
+                   (float)it.get_height() / geom_.canvas_h);
+      ox = (it.get_width() - geom_.canvas_w * s) / 2.0f;
+      oy = (it.get_height() - geom_.canvas_h * s) / 2.0f;
+    }
+    set_transform_(s, ox, oy);
+
+    if (style_.ears) draw_ears_(it, by);
+
     // is_left refers to the CHARACTER's left (viewer's right), matching
     // the original Eye(r, isLeft) constructor args.
     draw_eye_(it, geom_.left_eye_x + gx,  geom_.left_eye_y + by + gy,
@@ -307,7 +405,13 @@ class Avatar {
     draw_eye_(it, geom_.right_eye_x + gx, geom_.right_eye_y + by + gy,
               /*is_left=*/true, open);
 
+    if (style_.nose) draw_nose_(it, by);
+    if (style_.whiskers) draw_whiskers_(it, by);
     draw_mouth_(it, by);
+
+    // Effect marks are designed for 320x240; map them into the face.
+    set_transform_(s * geom_.effect_scale, ox + geom_.effect_x * s,
+                   oy + geom_.effect_y * s);
     draw_effect_(it);
   }
 
@@ -321,11 +425,11 @@ class Avatar {
 
     if (!open) {
       // Blink: flat horizontal bar (original: fillRect 2r x 4)
-      it.filled_rectangle(cx - r, cy - 2, r * 2, 4, palette_.primary);
+      frect_(it, cx - r, cy - 2, r * 2, 4, palette_.primary);
       return;
     }
 
-    it.filled_circle(cx, cy, r, palette_.primary);
+    fcircle_(it, cx, cy, r, palette_.primary);
 
     switch (expression_) {
       case Expression::Angry:
@@ -336,23 +440,23 @@ class Avatar {
         const bool sad = expression_ == Expression::Sad;
         const int x0 = cx - r, y0 = cy - r, x1 = cx + r;
         const int x2 = (is_left != sad) ? x0 : x1;
-        fill_triangle_(it, x0, y0, x1, y0, x2, y0 + r, palette_.background);
+        tri_(it, x0, y0, x1, y0, x2, y0 + r, palette_.background);
         break;
       }
       case Expression::Happy:
         // Upper crescent ("^_^"): carve center circle + bottom half.
-        it.filled_circle(cx, cy, (int)(r / 1.5f), palette_.background);
-        it.filled_rectangle(cx - r - 2, cy, r * 2 + 4, r + 2,
+        fcircle_(it, cx, cy, (int)(r / 1.5f), palette_.background);
+        frect_(it, cx - r - 2, cy, r * 2 + 4, r + 2,
                             palette_.background);
         break;
       case Expression::Sleepy:
         // Droopy lower half-disc: carve the top half.
-        it.filled_rectangle(cx - r - 2, cy - r, r * 2 + 4, r + 2,
+        frect_(it, cx - r - 2, cy - r, r * 2 + 4, r + 2,
                             palette_.background);
         break;
       case Expression::Doubt:
         // Half-lidded flat top (the original used eyebrows for doubt).
-        it.filled_rectangle(cx - r - 2, cy - r, r * 2 + 4, (r * 3) / 5,
+        frect_(it, cx - r - 2, cy - r, r * 2 + 4, (r * 3) / 5,
                             palette_.background);
         break;
       default:
@@ -390,9 +494,20 @@ class Avatar {
     }
   }
 
+  void draw_mouth_(esphome::display::Display &it, int by) {
+    switch (style_.mouth) {
+      case MouthShape::Cat:
+        draw_cat_mouth_(it, by);
+        break;
+      default:
+        draw_bar_mouth_(it, by);
+        break;
+    }
+  }
+
   // Port of the original Mouth::draw(): a filled rectangle that is wide
   // and thin when closed (90x4) and narrows while opening (50x60).
-  void draw_mouth_(esphome::display::Display &it, int by) {
+  void draw_bar_mouth_(esphome::display::Display &it, int by) {
     const float open = std::clamp(speak_, 0.0f, 1.0f);
     const int h = geom_.mouth_min_h +
                   (int)((geom_.mouth_max_h - geom_.mouth_min_h) * open);
@@ -402,10 +517,10 @@ class Avatar {
     // Original: mouth shifts by breath*3 (face) plus breath*2 (mouth-local).
     const int y = geom_.mouth_y - h / 2 + by + (int)(breath_ * 2.0f);
 
-    it.filled_rectangle(x, y, w, h, palette_.primary);
+    frect_(it, x, y, w, h, palette_.primary);
     // Inner-mouth accent — invisible unless secondary differs from primary.
     if (h > 12 && w > 12) {
-      it.filled_rectangle(x + 3, y + 3, w - 6, h - 6, palette_.secondary);
+      frect_(it, x + 3, y + 3, w - 6, h - 6, palette_.secondary);
     }
   }
 
@@ -489,9 +604,9 @@ class Avatar {
   }
 
   void draw_note_(esphome::display::Display &it, int x, int y) {
-    it.filled_circle(x, y, 3, palette_.primary);                  // head
-    it.filled_rectangle(x + 2, y - 12, 2, 12, palette_.primary);  // stem
-    it.line(x + 3, y - 12, x + 8, y - 8, palette_.primary);       // flag
+    fcircle_(it, x, y, 3, palette_.primary);                  // head
+    frect_(it, x + 2, y - 12, 2, 12, palette_.primary);  // stem
+    line_(it, x + 3, y - 12, x + 8, y - 8, palette_.primary);       // flag
   }
 
   // "ZZz" written out horizontally like text — bottoms aligned, growing
@@ -512,37 +627,37 @@ class Avatar {
   // A 2px-thick "Z" glyph drawn with lines; (x, y) is the top-left, s the size.
   void draw_z_(esphome::display::Display &it, int x, int y, int s) {
     for (int t = 0; t < 2; t++) {
-      it.horizontal_line(x, y + t, s, palette_.primary);
-      it.horizontal_line(x, y + s - 2 + t, s, palette_.primary);
-      it.line(x + s - 1, y + t, x, y + s - 2 + t, palette_.primary);
+      hline_(it, x, y + t, s, palette_.primary);
+      hline_(it, x, y + s - 2 + t, s, palette_.primary);
+      line_(it, x + s - 1, y + t, x, y + s - 2 + t, palette_.primary);
     }
   }
 
   void draw_heart_(esphome::display::Display &it, int x, int y, int r) {
-    it.filled_circle(x - r / 2, y, r / 2, palette_.primary);
-    it.filled_circle(x + r / 2, y, r / 2, palette_.primary);
+    fcircle_(it, x - r / 2, y, r / 2, palette_.primary);
+    fcircle_(it, x + r / 2, y, r / 2, palette_.primary);
     const int a = (int)((std::sqrt(2.0f) * r) / 4.0f);
-    fill_triangle_(it, x, y, x - r / 2 - a, y + a, x + r / 2 + a, y + a,
+    tri_(it, x, y, x - r / 2 - a, y + a, x + r / 2 + a, y + a,
                    palette_.primary);
-    fill_triangle_(it, x, y + r / 2 + 2 * a, x - r / 2 - a, y + a,
+    tri_(it, x, y + r / 2 + 2 * a, x - r / 2 - a, y + a,
                    x + r / 2 + a, y + a, palette_.primary);
   }
 
   // (r stays >= 9 so the background carve that splits the cross into
   // four corners remains visible.)
   void draw_anger_(esphome::display::Display &it, int x, int y, int r) {
-    it.filled_rectangle(x - r / 3, y - r, (r * 2) / 3, r * 2, palette_.primary);
-    it.filled_rectangle(x - r, y - r / 3, r * 2, (r * 2) / 3, palette_.primary);
-    it.filled_rectangle(x - r / 3 + 2, y - r, (r * 2) / 3 - 4, r * 2,
+    frect_(it, x - r / 3, y - r, (r * 2) / 3, r * 2, palette_.primary);
+    frect_(it, x - r, y - r / 3, r * 2, (r * 2) / 3, palette_.primary);
+    frect_(it, x - r / 3 + 2, y - r, (r * 2) / 3 - 4, r * 2,
                         palette_.background);
-    it.filled_rectangle(x - r, y - r / 3 + 2, r * 2, (r * 2) / 3 - 4,
+    frect_(it, x - r, y - r / 3 + 2, r * 2, (r * 2) / 3 - 4,
                         palette_.background);
   }
 
   void draw_sweat_(esphome::display::Display &it, int x, int y, int r) {
-    it.filled_circle(x, y, r, palette_.primary);
+    fcircle_(it, x, y, r, palette_.primary);
     const int a = (int)((std::sqrt(3.0f) * r) / 2.0f);
-    fill_triangle_(it, x, y - r * 2, x - a, y - r / 2, x + a, y - r / 2,
+    tri_(it, x, y - r * 2, x - a, y - r / 2, x + a, y - r / 2,
                    palette_.primary);
   }
 
@@ -552,7 +667,7 @@ class Avatar {
     for (int i = 0; i < 3; i++) {
       const float ph = (effect_phase_ + i * 0.33f) * 2.0f * (float)M_PI;
       const int h = 18 + (int)(std::sin(ph) * 6.0f);
-      it.filled_rectangle(x + i * spacing, 0, 3, h, palette_.primary);
+      frect_(it, x + i * spacing, 0, 3, h, palette_.primary);
     }
   }
 
@@ -566,8 +681,168 @@ class Avatar {
       const int r = 2 + (int)(p * 6.0f);
       const int x = 284 + (int)(std::sin(p * 4.0f * (float)M_PI) * 5.0f);
       const int y = 80 - (int)(p * 48.0f);
-      it.circle(x, y, r, palette_.primary);
+      circle_(it, x, y, r, palette_.primary);
     }
+  }
+
+  // --- optional cat parts (FaceStyle). Designed on the cat's 128x128
+  // canvas; the geometry's *_size multipliers scale them to other faces.
+  // Right-side parts mirror the left ones around the middle of the eyes.
+
+  float mirror_x_(float x) const {
+    return (float)(geom_.left_eye_x + geom_.right_eye_x) - x;
+  }
+
+  // Ears: one triangle each, rotated around its pivot per mood.
+  // Negative angle = the tip falls outward.
+  struct EarPose { float rot, dy; };  // degrees, vertical shift (cat px)
+
+  void draw_ears_(esphome::display::Display &it, int by) {
+    EarPose left{0, 0}, right{0, 0};
+    if (listening_) {
+      left = right = {0, -5};  // raised high, attentive
+    } else {
+      switch (expression_) {
+        case Expression::Happy:  left = right = {8, -3};    break;  // perked up
+        case Expression::Sad:    left = right = {-55, 4};   break;  // drooping
+        case Expression::Angry:  left = right = {-80, 6};   break;  // flattened back
+        case Expression::Sleepy: left = right = {-30, 7};   break;  // half lowered
+        case Expression::Doubt:  right = {-40, 3};          break;  // "hm?"
+        default:                                            break;  // upright
+      }
+    }
+    draw_ear_(it, left, by, false);
+    draw_ear_(it, right, by, true);
+  }
+
+  void draw_ear_(esphome::display::Display &it, const EarPose &pose, int by,
+                 bool mirrored) {
+    static constexpr float kPts[3][2] = {{-15, 6}, {-7, -26}, {15, -6}};
+    const float k = geom_.ear_size;
+    const float a = pose.rot * (float)M_PI / 180.0f;
+    const float c = std::cos(a), s = std::sin(a);
+    const float px = geom_.ear_x, py = geom_.ear_y + pose.dy * k + by;
+    float x[3], y[3];
+    for (int i = 0; i < 3; i++) {
+      x[i] = px + (kPts[i][0] * c - kPts[i][1] * s) * k;
+      y[i] = py + (kPts[i][0] * s + kPts[i][1] * c) * k;
+      if (mirrored) x[i] = mirror_x_(x[i]);
+    }
+    tri_(it, x[0], y[0], x[1], y[1], x[2], y[2], palette_.primary);
+  }
+
+  // Heart nose: two circles over a triangle; (nose_x, nose_y) is the top.
+  void draw_nose_(esphome::display::Display &it, int by) {
+    const float k = geom_.nose_size;
+    const float x = geom_.nose_x, y = geom_.nose_y + by;
+    fcircle_(it, x - 2.5f * k, y, 2.6f * k, palette_.primary);
+    fcircle_(it, x + 2.5f * k, y, 2.6f * k, palette_.primary);
+    tri_(it, x - 5 * k, y + k, x + 5 * k, y + k, x, y + 6 * k,
+         palette_.primary);
+  }
+
+  void draw_whiskers_(esphome::display::Display &it, int by) {
+    const float k = geom_.whisker_size;
+    const float x = geom_.whisker_x, y = geom_.whisker_y + by;
+    const float lines[2][4] = {{x - 26 * k, y - 6 * k, x, y - 2 * k},
+                               {x - 26 * k, y + 6 * k, x, y + 4 * k}};
+    for (const auto &l : lines) {
+      thick_line_(it, l[0], l[1], l[2], l[3], 2 * k, palette_.primary);
+      thick_line_(it, mirror_x_(l[0]), l[1], mirror_x_(l[2]), l[3], 2 * k,
+                  palette_.primary);
+    }
+  }
+
+  // Cat mouth: a "w" that stays, with a round opening dropping below it
+  // while speaking (the speak phase drives it like the bar mouth).
+  void draw_cat_mouth_(esphome::display::Display &it, int by) {
+    static constexpr float kPts[5][2] = {
+        {-10, 0}, {-5, 5}, {0, -1}, {5, 5}, {10, 0}};
+    const float k = geom_.cat_mouth_size;
+    const float x = geom_.mouth_x;
+    const float y = geom_.mouth_y + by + (int)(breath_ * 2.0f);
+    for (int i = 0; i < 4; i++) {
+      thick_line_(it, x + kPts[i][0] * k, y + kPts[i][1] * k,
+                  x + kPts[i + 1][0] * k, y + kPts[i + 1][1] * k, 3 * k,
+                  palette_.primary);
+    }
+    const float r = std::clamp(speak_, 0.0f, 1.0f) * 5.0f * k;
+    if (r >= 1.0f) {
+      fcircle_(it, x, y + 5 * k + r, r, palette_.primary);
+      // Inner accent — invisible unless secondary differs from primary.
+      if (r >= 3.0f * k) fcircle_(it, x, y + 5 * k + r, r * 0.6f, palette_.secondary);
+    }
+  }
+
+  // --- logical canvas -> display transform. Every draw call above goes
+  // through these. With the identity transform (fitting off, Stack-chan
+  // geometry) they pass the original integer values through unchanged.
+  void set_transform_(float s, float ox, float oy) {
+    s_ = s;
+    ox_ = ox;
+    oy_ = oy;
+    identity_ = s == 1.0f && ox == 0.0f && oy == 0.0f;
+  }
+  int tx_(float x) const { return (int)std::lround(ox_ + x * s_); }
+  int ty_(float y) const { return (int)std::lround(oy_ + y * s_); }
+  // Lengths and radii: scaled, but never below 1 px once scaled.
+  int ts_(float v) const {
+    if (identity_) return (int)std::lround(v);
+    return std::max(1, (int)std::lround(v * s_));
+  }
+  int span_(int a, int b) const { return identity_ ? b - a : std::max(1, b - a); }
+
+  void fcircle_(esphome::display::Display &it, float x, float y, float r,
+                esphome::Color c) {
+    it.filled_circle(tx_(x), ty_(y), ts_(r), c);
+  }
+  void circle_(esphome::display::Display &it, float x, float y, float r,
+               esphome::Color c) {
+    it.circle(tx_(x), ty_(y), ts_(r), c);
+  }
+  void frect_(esphome::display::Display &it, float x, float y, float w,
+              float h, esphome::Color c) {
+    const int x0 = tx_(x), y0 = ty_(y);
+    it.filled_rectangle(x0, y0, span_(x0, tx_(x + w)), span_(y0, ty_(y + h)), c);
+  }
+  void hline_(esphome::display::Display &it, float x, float y, float w,
+              esphome::Color c) {
+    const int x0 = tx_(x);
+    it.horizontal_line(x0, ty_(y), span_(x0, tx_(x + w)), c);
+  }
+  void line_(esphome::display::Display &it, float x0, float y0, float x1,
+             float y1, esphome::Color c) {
+    it.line(tx_(x0), ty_(y0), tx_(x1), ty_(y1), c);
+  }
+  void tri_(esphome::display::Display &it, float x0, float y0, float x1,
+            float y1, float x2, float y2, esphome::Color c) {
+    fill_triangle_(it, tx_(x0), ty_(y0), tx_(x1), ty_(y1), tx_(x2), ty_(y2), c);
+  }
+
+  // Line with thickness t (logical px) and round caps, drawn as two
+  // triangles plus a circle on each end. Falls back to a 1 px line.
+  void thick_line_(esphome::display::Display &it, float x0, float y0, float x1,
+                   float y1, float t, esphome::Color c) {
+    const float ax = ox_ + x0 * s_, ay = oy_ + y0 * s_;
+    const float bx = ox_ + x1 * s_, by = oy_ + y1 * s_;
+    const float w = t * s_;
+    if (w < 1.5f) {
+      it.line(tx_(x0), ty_(y0), tx_(x1), ty_(y1), c);
+      return;
+    }
+    const float len = std::hypot(bx - ax, by - ay);
+    if (len > 0.0f) {
+      const float nx = -(by - ay) / len * w / 2.0f;
+      const float ny = (bx - ax) / len * w / 2.0f;
+      auto r = [](float v) { return (int)std::lround(v); };
+      fill_triangle_(it, r(ax + nx), r(ay + ny), r(bx + nx), r(by + ny),
+                     r(bx - nx), r(by - ny), c);
+      fill_triangle_(it, r(ax + nx), r(ay + ny), r(bx - nx), r(by - ny),
+                     r(ax - nx), r(ay - ny), c);
+    }
+    const int cr = std::max(1, (int)(w / 2.0f));
+    it.filled_circle(tx_(x0), ty_(y0), cr, c);
+    it.filled_circle(tx_(x1), ty_(y1), cr, c);
   }
 
   // xorshift32 — deterministic, no libc rand() on the render path.
@@ -613,6 +888,13 @@ class Avatar {
   uint32_t     rng_{0x6C078965};
   ColorPalette palette_{};
   FaceGeometry geom_{};
+  FaceStyle    style_{};
+  bool         fit_{false};
+  // current logical -> display transform (see set_transform_)
+  float        s_{1.0f};
+  float        ox_{0.0f};
+  float        oy_{0.0f};
+  bool         identity_{true};
 };
 
 }  // namespace stackchan_avatar
