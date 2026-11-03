@@ -7,6 +7,7 @@ My collection of [ESPHome](https://esphome.io) external components.
 | Component | Description |
 |-----------|-------------|
 | [`esphome_avatar`](components/esphome_avatar/) | Header-only Stack-chan-style avatar face for `display:` lambdas — expressions, blink/breath/saccade animation, effect marks, idle mode. |
+| [`roboeyes`](components/roboeyes/) | [FluxGarage RoboEyes](https://github.com/FluxGarage/RoboEyes) animated robot eyes for `display:` lambdas. **GPL-3.0**, see below. |
 
 ## Usage
 
@@ -38,3 +39,7 @@ device configs live in [`examples/`](examples/).
 
 MIT, see [LICENSE](LICENSE). Individual components may carry additional
 upstream attributions in their headers.
+
+Exception: [`roboeyes`](components/roboeyes/) is **GPL-3.0-or-later**,
+like the upstream RoboEyes library it includes. See its
+[LICENSE](components/roboeyes/LICENSE).
